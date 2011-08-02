@@ -1,0 +1,3 @@
+The goal of this project is to create a flexible, MCMC-based fitting
+utility to compare Monte Carlo simulations and data from a scientific
+experiment.  It is a continuation of my doctoral thesis project.

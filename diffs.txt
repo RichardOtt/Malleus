@@ -1,0 +1,838 @@
+/*****								/*****
+3-D Pdf implementation.  This does a lot of the "real" work, 	3-D Pdf implementation.  This does a lot of the "real" work, 
+probably all need to be optimized, especially CalcLogLikeliho	probably all need to be optimized, especially CalcLogLikeliho
+*****/								*****/
+
+#include "Pdf3D.h"						#include "Pdf3D.h"
+
+Pdf3D::Pdf3D() {						Pdf3D::Pdf3D() {
+  masterPdf = NULL;						  masterPdf = NULL;
+  dataArray = NULL;						  dataArray = NULL;
+}								}
+
+Pdf3D::~Pdf3D() {						Pdf3D::~Pdf3D() {
+  if(masterPdf != NULL) {					  if(masterPdf != NULL) {
+    delete masterPdf;						    delete masterPdf;
+    masterPdf = NULL;						    masterPdf = NULL;
+  }								  }
+  if(dataArray != NULL) {					  if(dataArray != NULL) {
+    delete [] dataArray;					    delete [] dataArray;
+    dataArray = NULL;						    dataArray = NULL;
+  }								  }
+}								}
+
+Pdf3D& Pdf3D::operator = (const Pdf3D& other) {			Pdf3D& Pdf3D::operator = (const Pdf3D& other) {
+  name = other.name;						  name = other.name;
+  pdfNum = other.pdfNum;					  pdfNum = other.pdfNum;
+  pars = other.pars;						  pars = other.pars;
+  parNames = other.parNames;					  parNames = other.parNames;
+  parNums = other.parNums;					  parNums = other.parNums;
+  logLikelihood = other.logLikelihood;				  logLikelihood = other.logLikelihood;
+  systematics = other.systematics;				  systematics = other.systematics;
+  fluxes = other.fluxes;					  fluxes = other.fluxes;
+  mcBranches = other.mcBranches; 				  mcBranches = other.mcBranches; 
+  axisNames = other.axisNames;					  axisNames = other.axisNames;
+  axisNums = other.axisNums;					  axisNums = other.axisNums;
+
+  masterPdf = dynamic_cast<TH3D*>(other.masterPdf->Clone());	  masterPdf = dynamic_cast<TH3D*>(other.masterPdf->Clone());
+  nDataPoints = other.nDataPoints;				  nDataPoints = other.nDataPoints;
+  dataArray = other.dataArray; //So data not copied, just sha	  dataArray = other.dataArray; //So data not copied, just sha
+
+  return *this;							  return *this;
+}								}
+
+Bool_t Pdf3D::SetupPdf(ConfigFile& config, vector<string> par	Bool_t Pdf3D::SetupPdf(ConfigFile& config, vector<string> par
+  Bool_t succeeded = true;					  Bool_t succeeded = true;
+  //Needs to do: setup masterPdf - create, set binning, set t	  //Needs to do: setup masterPdf - create, set binning, set t
+  //create pdf, will overwrite bins to match config file	  //create pdf, will overwrite bins to match config file
+  masterPdf = new TH3D(name.c_str(),name.c_str(),4,0,1,4,0,1,	  masterPdf = new TH3D(name.c_str(),name.c_str(),4,0,1,4,0,1,
+
+  cout << "Starting setup for 3D pdf " << name << endl;		  cout << "Starting setup for 3D pdf " << name << endl;
+
+  string axisInfo, tempString;					  string axisInfo, tempString;
+  ostringstream ostr;						  ostringstream ostr;
+
+  //Axes information (xAxisBins, etc) filled in by PdfParent	  //Axes information (xAxisBins, etc) filled in by PdfParent
+  for(int axis=0; axis < 3; axis++)				  for(int axis=0; axis < 3; axis++)
+    succeeded &= SetupAxis(config, axis);			    succeeded &= SetupAxis(config, axis);
+
+  //Debug							  //Debug
+  //Print out xAxisBins, yAxisBins, zAxisBins, axisNames, axi	  //Print out xAxisBins, yAxisBins, zAxisBins, axisNames, axi
+//   for(int tempNumber = 0; tempNumber < xAxisBins.size(); t	//   for(int tempNumber = 0; tempNumber < xAxisBins.size(); t
+//     cout << "xAxisBins[" << tempNumber << "] = " << xAxisB	//     cout << "xAxisBins[" << tempNumber << "] = " << xAxisB
+//   for(int tempNumber = 0; tempNumber < yAxisBins.size(); t	//   for(int tempNumber = 0; tempNumber < yAxisBins.size(); t
+//     cout << "yAxisBins[" << tempNumber << "] = " << yAxisB	//     cout << "yAxisBins[" << tempNumber << "] = " << yAxisB
+//   for(int tempNumber = 0; tempNumber < zAxisBins.size(); t	//   for(int tempNumber = 0; tempNumber < zAxisBins.size(); t
+//     cout << "zAxisBins[" << tempNumber << "] = " << zAxisB	//     cout << "zAxisBins[" << tempNumber << "] = " << zAxisB
+//   for(int tempNumber = 0; tempNumber < axisNames.size(); t	//   for(int tempNumber = 0; tempNumber < axisNames.size(); t
+//     cout << "axisNames[" << tempNumber << "] = " << axisNa	//     cout << "axisNames[" << tempNumber << "] = " << axisNa
+//   for(int tempNumber = 0; tempNumber < axisNums.size(); te	//   for(int tempNumber = 0; tempNumber < axisNums.size(); te
+//     cout << "axisNums[" << tempNumber << "] = " << axisNum	//     cout << "axisNums[" << tempNumber << "] = " << axisNum
+  								  
+
+  //Undocumented root "feature" - need to rebuild histo if al	  //Undocumented root "feature" - need to rebuild histo if al
+  //axes directly						  //axes directly
+  masterPdf->Rebuild();						  masterPdf->Rebuild();
+
+  axisInfo.clear();						  axisInfo.clear();
+  ostr.str(axisInfo);						  ostr.str(axisInfo);
+  ostr << "Pdf_" << pdfNum;					  ostr << "Pdf_" << pdfNum;
+  axisInfo = ostr.str();					  axisInfo = ostr.str();
+
+  //Get and read in data					  //Get and read in data
+  string filename = config.read<string>(axisInfo+"_DataFile",	  string filename = config.read<string>(axisInfo+"_DataFile",
+  if(filename == "") {						  if(filename == "") {
+    Errors::AddError("Error: "+axisInfo+"_DataFile not define	    Errors::AddError("Error: "+axisInfo+"_DataFile not define
+    return false;						    return false;
+  }								  }
+  TFile dataFile(filename.c_str());				  TFile dataFile(filename.c_str());
+  if(dataFile.IsZombie()) {					  if(dataFile.IsZombie()) {
+    Errors::AddError("Error: "+filename+" did not open proper	    Errors::AddError("Error: "+filename+" did not open proper
+    dataFile.Close();						    dataFile.Close();
+    gROOT->cd();						    gROOT->cd();
+    return false;						    return false;
+  }								  }
+  cout << "Opened file " << filename << endl;			  cout << "Opened file " << filename << endl;
+
+  string treeName = config.read<string>(axisInfo+"_DataTree")	  string treeName = config.read<string>(axisInfo+"_DataTree")
+  TTree *dataTree = dynamic_cast<TTree*>(dataFile.Get(treeNam	  TTree *dataTree = dynamic_cast<TTree*>(dataFile.Get(treeNam
+  if(dataTree == NULL) {					  if(dataTree == NULL) {
+    Errors::AddError("Error: "+treeName+" in "+filename+" not	    Errors::AddError("Error: "+treeName+" in "+filename+" not
+    dataFile.Close();						    dataFile.Close();
+    gROOT->cd();						    gROOT->cd();
+    return false;						    return false;
+  }								  }
+  cout << "Read tree " << treeName << endl;			  cout << "Read tree " << treeName << endl;
+
+  //Now, read out branch names using some TObjArray trickery	  //Now, read out branch names using some TObjArray trickery
+  vector<string> treeBranches;					  vector<string> treeBranches;
+  Int_t nTreeBranches = dataTree->GetNbranches();		  Int_t nTreeBranches = dataTree->GetNbranches();
+  TObjArray *branchNameArray;					  TObjArray *branchNameArray;
+  branchNameArray = dataTree->GetListOfBranches();		  branchNameArray = dataTree->GetListOfBranches();
+  for(int i=0; i < nTreeBranches; i++) {			  for(int i=0; i < nTreeBranches; i++) {
+    TBranch *tempBranch = (TBranch*)branchNameArray->Unchecke	    TBranch *tempBranch = (TBranch*)branchNameArray->Unchecke
+    treeBranches.push_back(tempBranch->GetName());		    treeBranches.push_back(tempBranch->GetName());
+  }								  }
+
+  for(Int_t axisNumber=0; axisNumber < 3; axisNumber++) {	  for(Int_t axisNumber=0; axisNumber < 3; axisNumber++) {
+    int position = SearchStringVector(treeBranches, axisNames	    int position = SearchStringVector(treeBranches, axisNames
+    if(position == -1) {					    if(position == -1) {
+      //axisName not in the branches in the tree, abort		      //axisName not in the branches in the tree, abort
+      Errors::AddError("Error: "+axisNames[axisNumber]+\	      Errors::AddError("Error: "+axisNames[axisNumber]+\
+		       " not a branch in "+treeName);				       " not a branch in "+treeName);
+      dataFile.Close();						      dataFile.Close();
+      gROOT->cd();						      gROOT->cd();
+      return false;						      return false;
+    }								    }
+  }								  }
+  //So now we're sure all 3 axes appear as branches in the tr	  //So now we're sure all 3 axes appear as branches in the tr
+
+  cout << "Starting to read data for 3D pdf " << name << endl	  cout << "Starting to read data for 3D pdf " << name << endl
+
+  //Read data in to internal array, making sure all data poin	  //Read data in to internal array, making sure all data poin
+  //are within the bounds of the bins, reject those that aren	  //are within the bounds of the bins, reject those that aren
+  Double_t xMin, xMax, yMin, yMax, zMin, zMax;			  Double_t xMin, xMax, yMin, yMax, zMin, zMax;
+  xMin = xAxisBins[0];						  xMin = xAxisBins[0];
+  xMax = xAxisBins[xAxisBins.size()-1];				  xMax = xAxisBins[xAxisBins.size()-1];
+  yMin = yAxisBins[0];						  yMin = yAxisBins[0];
+  yMax = yAxisBins[yAxisBins.size()-1];				  yMax = yAxisBins[yAxisBins.size()-1];
+  zMin = zAxisBins[0];						  zMin = zAxisBins[0];
+  zMax = zAxisBins[zAxisBins.size()-1];				  zMax = zAxisBins[zAxisBins.size()-1];
+  Bool_t inRange = true;					  Bool_t inRange = true;
+  Float_t dataEventX;						  Float_t dataEventX;
+  Float_t dataEventY;						  Float_t dataEventY;
+  Float_t dataEventZ;						  Float_t dataEventZ;
+  dataTree->SetBranchAddress(axisNames[0].c_str(),&dataEventX	  dataTree->SetBranchAddress(axisNames[0].c_str(),&dataEventX
+  cout << "dataEventX matched to " << axisNames[0] << endl;	  cout << "dataEventX matched to " << axisNames[0] << endl;
+  dataTree->SetBranchAddress(axisNames[1].c_str(),&dataEventY	  dataTree->SetBranchAddress(axisNames[1].c_str(),&dataEventY
+  cout << "dataEventY matched to " << axisNames[1] << endl;	  cout << "dataEventY matched to " << axisNames[1] << endl;
+  dataTree->SetBranchAddress(axisNames[2].c_str(),&dataEventZ	  dataTree->SetBranchAddress(axisNames[2].c_str(),&dataEventZ
+  cout << "dataEventZ matched to " << axisNames[2] << endl;	  cout << "dataEventZ matched to " << axisNames[2] << endl;
+  nDataPoints = dataTree->GetEntries();				  nDataPoints = dataTree->GetEntries();
+  cout << "Bounds: (" << xMin << ", " << yMin << ", " << zMin	  cout << "Bounds: (" << xMin << ", " << yMin << ", " << zMin
+  cout << xMax << ", " << yMax << ", " << zMax << ")\n";	  cout << xMax << ", " << yMax << ", " << zMax << ")\n";
+  vector<Double_t> dataVec;					  vector<Double_t> dataVec;
+  for(int i=0; i < nDataPoints; i++) {				  for(int i=0; i < nDataPoints; i++) {
+    dataTree->GetEvent(i);					    dataTree->GetEvent(i);
+    inRange = true;						    inRange = true;
+    inRange &= (dataEventX >= xMin && dataEventX < xMax);	    inRange &= (dataEventX >= xMin && dataEventX < xMax);
+    inRange &= (dataEventY >= yMin && dataEventY < yMax);	    inRange &= (dataEventY >= yMin && dataEventY < yMax);
+    inRange &= (dataEventZ >= zMin && dataEventZ < zMax);	    inRange &= (dataEventZ >= zMin && dataEventZ < zMax);
+    if(!inRange) {						    if(!inRange) {
+      cout << "Data point out of axis range in " << name << "	      cout << "Data point out of axis range in " << name << "
+      cout << "Point is: (" << dataEventX << ", " << dataEven	      cout << "Point is: (" << dataEventX << ", " << dataEven
+      cout << dataEventZ << "); event " << i << endl;		      cout << dataEventZ << "); event " << i << endl;
+      continue;							      continue;
+    }								    }
+    dataVec.push_back(dataEventX);				    dataVec.push_back(dataEventX);
+    dataVec.push_back(dataEventY);				    dataVec.push_back(dataEventY);
+    dataVec.push_back(dataEventZ);				    dataVec.push_back(dataEventZ);
+  }								  }
+  								  
+  nDataPoints = dataVec.size()/3;				  nDataPoints = dataVec.size()/3;
+  dataArray = new Float_t[dataVec.size()];			  dataArray = new Float_t[dataVec.size()];
+  for(int i=0; i < dataVec.size(); i++) {			  for(int i=0; i < dataVec.size(); i++) {
+    dataArray[i] = dataVec[i];					    dataArray[i] = dataVec[i];
+  }								  }
+
+  dataFile.Close();						  dataFile.Close();
+  gROOT->cd();							  gROOT->cd();
+
+  return succeeded;						  return succeeded;
+  								  
+}								}
+
+Double_t Pdf3D::CalcLogLikelihood() {				Double_t Pdf3D::CalcLogLikelihood() {
+  //Will have non-normalized pdf, but know its normalization	  //Will have non-normalized pdf, but know its normalization
+  //Will use extended likelihood				  //Will use extended likelihood
+  //Returns log likelihood					  //Returns log likelihood
+  //Need to figure out some way to minimize the number of cal	  //Need to figure out some way to minimize the number of cal
+
+  //I'll have check to see if parameters are out of range, re	  //I'll have check to see if parameters are out of range, re
+  //ridiculous value if they are				  //ridiculous value if they are
+  Double_t penalty = -1e200;					  Double_t penalty = -1e200;
+  Int_t nPars = pars.size();					  Int_t nPars = pars.size();
+  for(int i=0; i < nPars; i++) {				  for(int i=0; i < nPars; i++) {
+    if(parHasMin[i] && pars[i] < parMins[i])			    if(parHasMin[i] && pars[i] < parMins[i])
+      return penalty;						      return penalty;
+    if(parHasMax[i] && pars[i] > parMaxes[i])			    if(parHasMax[i] && pars[i] > parMaxes[i])
+      return penalty;						      return penalty;
+  }								  }
+
+  //Later, move rebuilding pdf to parameter entry, so can tes	  //Later, move rebuilding pdf to parameter entry, so can tes
+  //or at least, have it set a flag that pdf needs to be rebu	  //or at least, have it set a flag that pdf needs to be rebu
+  //be a point rebuilding then if likelihood never asked for	  //be a point rebuilding then if likelihood never asked for
+  //Actually, it's probably best to keep the pdf up-to-date w	  //Actually, it's probably best to keep the pdf up-to-date w
+  //if I plan on also using this to draw itself			  //if I plan on also using this to draw itself
+  RebuildPdf();							  RebuildPdf();
+
+  NormalizePdfByBinWidth();					  NormalizePdfByBinWidth();
+
+  //Double_t likelihood = 1;					  //Double_t likelihood = 1;
+  logLikelihood = 0;						  logLikelihood = 0;
+
+  //Data							  //Data
+  for(int i = 0; i < nDataPoints; i++) {			  for(int i = 0; i < nDataPoints; i++) {
+    //likelihood *= TMath::Max(GetValue(dataArray[i]),1.0);	    //likelihood *= TMath::Max(GetValue(dataArray[i]),1.0);
+    //Is this check more expensive than just calling log ever	    //Is this check more expensive than just calling log ever
+//     if(i%1000 == 0) {					//     if(i%1000 == 0) {
+//       logLikelihood += TMath::Log(likelihood);		//       logLikelihood += TMath::Log(likelihood);
+//       likelihood = 1;					//       likelihood = 1;
+//     }							//     }
+    logLikelihood += TMath::Log(GetValue(dataArray[3*i],dataA	    logLikelihood += TMath::Log(GetValue(dataArray[3*i],dataA
+					 dataArray[3*i+2]));						 dataArray[3*i+2]));
+  }								  }
+  //logLikelihood += TMath::Log(likelihood); //Catches leftov	  //logLikelihood += TMath::Log(likelihood); //Catches leftov
+  logLikelihood -= totalEvents; //"Extended" part of likeliho	  logLikelihood -= totalEvents; //"Extended" part of likeliho
+  								  
+
+  //Sys constraints, GetContraint returns log likelihood	  //Sys constraints, GetContraint returns log likelihood
+  int nSys = systematics.size();				  int nSys = systematics.size();
+  for(int i = 0; i < nSys; i++) {				  for(int i = 0; i < nSys; i++) {
+    logLikelihood += systematics[i]->CalcLogLikelihood();	    logLikelihood += systematics[i]->CalcLogLikelihood();
+  }								  }
+
+  //Bkgd constraints						  //Bkgd constraints
+  nSys = backgrounds.size();					  nSys = backgrounds.size();
+  for(int i=0; i < nSys; i++) {					  for(int i=0; i < nSys; i++) {
+    logLikelihood += backgrounds[i]->CalcLogLikelihood();	    logLikelihood += backgrounds[i]->CalcLogLikelihood();
+  }								  }
+
+  //Flux constraints						  //Flux constraints
+  nSys = fluxes.size();						  nSys = fluxes.size();
+  for(int i=0; i < nSys; i++) {					  for(int i=0; i < nSys; i++) {
+    logLikelihood += fluxes[i]->CalcLogLikelihood();		    logLikelihood += fluxes[i]->CalcLogLikelihood();
+  }								  }
+
+  //cout << "Pdf3D logLikelhood = " << logLikelihood << endl;	  //cout << "Pdf3D logLikelhood = " << logLikelihood << endl;
+
+  return logLikelihood;						  return logLikelihood;
+
+}								}
+
+void Pdf3D::RebuildPdf() {					void Pdf3D::RebuildPdf() {
+  //Ah, the really tricky one.  This puts the masterPdf toget	  //Ah, the really tricky one.  This puts the masterPdf toget
+  //from the various fluxes, systematics and backgrounds	  //from the various fluxes, systematics and backgrounds
+
+  masterPdf->Reset();						  masterPdf->Reset();
+
+  int nFluxes = fluxes.size();					  int nFluxes = fluxes.size();
+//   int nSys = systematics.size();				//   int nSys = systematics.size();
+  for(int fluxNum=0; fluxNum < nFluxes; fluxNum++) {		  for(int fluxNum=0; fluxNum < nFluxes; fluxNum++) {
+
+    //Set flux number in Sys, kludgy				    //Set flux number in Sys, kludgy
+    for(int i=0; i < systematics.size(); i++) {			    for(int i=0; i < systematics.size(); i++) {
+      systematics[i]->SetFluxType(fluxes[fluxNum]->GetFluxTyp	      systematics[i]->SetFluxType(fluxes[fluxNum]->GetFluxTyp
+    }								    }
+
+    const vector<Double_t>& eventData = fluxes[fluxNum]->GetE	    const vector<Double_t>& eventData = fluxes[fluxNum]->GetE
+
+    vector<Double_t> difference;				    vector<Double_t> difference;
+    int nFluxEvents = fluxes[fluxNum]->GetNEvents();		    int nFluxEvents = fluxes[fluxNum]->GetNEvents();
+    Double_t weight = fluxes[fluxNum]->GetFluxSize() / fluxes	    Double_t weight = fluxes[fluxNum]->GetFluxSize() / fluxes
+    difference.assign(eventData.size(),0);			    difference.assign(eventData.size(),0);
+    int eventDataSize = eventData.size();			    int eventDataSize = eventData.size();
+    int weightLocation = eventDataSize - 1;			    int weightLocation = eventDataSize - 1;
+
+    int eventLoc=0, sysNum=0;					    int eventLoc=0, sysNum=0;
+
+    vector<Sys*> activeSys;					    vector<Sys*> activeSys;
+    for(int i=0; i < systematics.size(); i++)			    for(int i=0; i < systematics.size(); i++)
+      if(systematics[i]->CheckIfAffected())			      if(systematics[i]->CheckIfAffected())
+	activeSys.push_back(systematics[i]);				activeSys.push_back(systematics[i]);
+    Int_t numActiveSys = activeSys.size();			    Int_t numActiveSys = activeSys.size();
+
+//     cout << fluxes[fluxNum]->GetName();			//     cout << fluxes[fluxNum]->GetName();
+//     for(int i=0; i < activeSys.size(); i++)			//     for(int i=0; i < activeSys.size(); i++)
+//       cout << " " << activeSys[i]->GetName();		//       cout << " " << activeSys[i]->GetName();
+//     cout << endl;						//     cout << endl;
+
+//     cout << "For Flux " << fluxes[fluxNum]->GetName() << e	//     cout << "For Flux " << fluxes[fluxNum]->GetName() << e
+//     for(int i=0; i < activeSys.size(); i++)			//     for(int i=0; i < activeSys.size(); i++)
+//       cout << "Active Sys: " << activeSys[i]->GetName() <<	//       cout << "Active Sys: " << activeSys[i]->GetName() <<
+
+
+    for(int eventNum=0; eventNum < nFluxEvents; eventNum++) {	    for(int eventNum=0; eventNum < nFluxEvents; eventNum++) {
+      fluxes[fluxNum]->GetEvent(eventNum);			      fluxes[fluxNum]->GetEvent(eventNum);
+      //Kludgy.  Need a better way				      //Kludgy.  Need a better way
+      //difference.assign(eventData.size(),0);			      //difference.assign(eventData.size(),0);
+      for(eventLoc=0; eventLoc < weightLocation; eventLoc++) 	      for(eventLoc=0; eventLoc < weightLocation; eventLoc++) 
+	difference[eventLoc] = 0;					difference[eventLoc] = 0;
+      }								      }
+      difference[weightLocation]=1;				      difference[weightLocation]=1;
+
+      //Apply sys to event					      //Apply sys to event
+      for(sysNum = 0; sysNum < numActiveSys; sysNum++) {	      for(sysNum = 0; sysNum < numActiveSys; sysNum++) {
+	activeSys[sysNum]->Apply(eventData, difference);		activeSys[sysNum]->Apply(eventData, difference);
+      }								      }
+      for(eventLoc=0; eventLoc < eventDataSize; eventLoc++)	      for(eventLoc=0; eventLoc < eventDataSize; eventLoc++)
+	difference[eventLoc] += eventData[eventLoc];			difference[eventLoc] += eventData[eventLoc];
+//       if(eventNum == 25) {					//       if(eventNum == 25) {
+// 	cout << "Internal weight being applied: ";		// 	cout << "Internal weight being applied: ";
+// 	cout << difference[eventData.size()-1] << " with exte	// 	cout << difference[eventData.size()-1] << " with exte
+// 	cout << weight << endl;					// 	cout << weight << endl;
+//       }							//       }
+
+      masterPdf->Fill(difference[axisNums[0]],difference[axis	      masterPdf->Fill(difference[axisNums[0]],difference[axis
+		      difference[axisNums[2]],					      difference[axisNums[2]],
+		      weight*difference[weightLocation]);			      weight*difference[weightLocation]);
+    }								    }
+
+  }								  }
+  //Done with Fluxes, add backgrounds				  //Done with Fluxes, add backgrounds
+  int nBkgds = backgrounds.size();				  int nBkgds = backgrounds.size();
+  Double_t weight;						  Double_t weight;
+  Double_t binCenterX, binCenterY, binCenterZ;			  Double_t binCenterX, binCenterY, binCenterZ;
+  for(int bkgdNum=0; bkgdNum < nBkgds; bkgdNum++) {		  for(int bkgdNum=0; bkgdNum < nBkgds; bkgdNum++) {
+    for(int x=1; x <= masterPdf->GetNbinsX(); x++) {		    for(int x=1; x <= masterPdf->GetNbinsX(); x++) {
+      for(int y=1; y <= masterPdf->GetNbinsY(); y++) {		      for(int y=1; y <= masterPdf->GetNbinsY(); y++) {
+	for(int z=1; z <= masterPdf->GetNbinsZ(); z++) {		for(int z=1; z <= masterPdf->GetNbinsZ(); z++) {
+	  weight = backgrounds[bkgdNum]->GetBinContent(x,y,z)		  weight = backgrounds[bkgdNum]->GetBinContent(x,y,z)
+	  binCenterX = masterPdf->GetXaxis()->GetBinCenter(x)		  binCenterX = masterPdf->GetXaxis()->GetBinCenter(x)
+	  binCenterY = masterPdf->GetYaxis()->GetBinCenter(y)		  binCenterY = masterPdf->GetYaxis()->GetBinCenter(y)
+	  binCenterZ = masterPdf->GetZaxis()->GetBinCenter(z)		  binCenterZ = masterPdf->GetZaxis()->GetBinCenter(z)
+	  masterPdf->Fill(binCenterX, binCenterY, binCenterZ 		  masterPdf->Fill(binCenterX, binCenterY, binCenterZ 
+	}								}
+      }								      }
+    }								    }
+  }								  }
+
+//   cout << "Integral gives: " << masterPdf->Integral() << e	//   cout << "Integral gives: " << masterPdf->Integral() << e
+
+  //Make sure each bin has at least 1e-10 events, just to kee	  //Make sure each bin has at least 1e-10 events, just to kee
+  //reacting poorly						  //reacting poorly
+  //Should I put a check in here for negative bins?  Force lo	  //Should I put a check in here for negative bins?  Force lo
+  //to report a limit if there are?				  //to report a limit if there are?
+  totalEvents = 0;						  totalEvents = 0;
+  Double_t binValue = 0;					  Double_t binValue = 0;
+  for(int x=1; x <= masterPdf->GetNbinsX(); x++) {		  for(int x=1; x <= masterPdf->GetNbinsX(); x++) {
+    for(int y=1; y <= masterPdf->GetNbinsY(); y++) {		    for(int y=1; y <= masterPdf->GetNbinsY(); y++) {
+      for(int z=1; z <= masterPdf->GetNbinsZ(); z++) {		      for(int z=1; z <= masterPdf->GetNbinsZ(); z++) {
+	binValue = masterPdf->GetBinContent(x,y,z);			binValue = masterPdf->GetBinContent(x,y,z);
+	if(binValue < 1e-10) {						if(binValue < 1e-10) {
+	  binValue = 1e-10;						  binValue = 1e-10;
+	  masterPdf->SetBinContent(x,y,z,1e-10);			  masterPdf->SetBinContent(x,y,z,1e-10);
+	}								}
+	totalEvents += binValue;					totalEvents += binValue;
+      }								      }
+    }								    }
+  }								  }
+  //cout << "Pdf " << name << " has total events = " << total	  //cout << "Pdf " << name << " has total events = " << total
+
+
+  //Calculate integrated total number of events, the lazy way	  //Calculate integrated total number of events, the lazy way
+  //totalEvents = masterPdf->Integral();			  //totalEvents = masterPdf->Integral();
+
+}								}
+
+void Pdf3D::NormalizePdfByBinWidth() {				void Pdf3D::NormalizePdfByBinWidth() {
+  //Very important that this not change the value of totalEve	  //Very important that this not change the value of totalEve
+  //even though it changes the overall scale on the pdf		  //even though it changes the overall scale on the pdf
+  Double_t binValue = 0, binWidth = 0;				  Double_t binValue = 0, binWidth = 0;
+
+  for(int x=1; x <= masterPdf->GetNbinsX(); x++) {		  for(int x=1; x <= masterPdf->GetNbinsX(); x++) {
+    for(int y=1; y <= masterPdf->GetNbinsY(); y++) {		    for(int y=1; y <= masterPdf->GetNbinsY(); y++) {
+      for(int z=1; z <= masterPdf->GetNbinsZ(); z++) {		      for(int z=1; z <= masterPdf->GetNbinsZ(); z++) {
+	binValue = masterPdf->GetBinContent(x,y,z);			binValue = masterPdf->GetBinContent(x,y,z);
+	binWidth = masterPdf->GetXaxis()->GetBinWidth(x);		binWidth = masterPdf->GetXaxis()->GetBinWidth(x);
+	binWidth *= masterPdf->GetYaxis()->GetBinWidth(y);		binWidth *= masterPdf->GetYaxis()->GetBinWidth(y);
+	binWidth *= masterPdf->GetZaxis()->GetBinWidth(z);		binWidth *= masterPdf->GetZaxis()->GetBinWidth(z);
+	binValue = binValue/binWidth;					binValue = binValue/binWidth;
+	masterPdf->SetBinContent(x,y,z,binValue);			masterPdf->SetBinContent(x,y,z,binValue);
+      }								      }
+    }								    }
+  }								  }
+
+}								}
+
+inline Double_t Pdf3D::GetValue(Double_t x, Double_t y, Doubl	inline Double_t Pdf3D::GetValue(Double_t x, Double_t y, Doubl
+  return masterPdf->GetBinContent(masterPdf->FindBin(x,y,z));	  return masterPdf->GetBinContent(masterPdf->FindBin(x,y,z));
+}								}
+
+Bool_t Pdf3D::SetupAxis(ConfigFile& config, Int_t axisNumber)	Bool_t Pdf3D::SetupAxis(ConfigFile& config, Int_t axisNumber)
+  //Reads axis info from config file, sets up axis (binning, 	  //Reads axis info from config file, sets up axis (binning, 
+  //Fills AxisNums, AxisNames					  //Fills AxisNums, AxisNames
+
+  Bool_t succeeded = true;					  Bool_t succeeded = true;
+
+  string axisInfo, tempString;					  string axisInfo, tempString;
+  ostringstream ostr;						  ostringstream ostr;
+
+  vector<double> binVec;					  vector<double> binVec;
+  //Int_t binNum = 0;						  //Int_t binNum = 0;
+  Double_t *binBoundaries = NULL;				  Double_t *binBoundaries = NULL;
+  //Handled by PdfParent					  //Handled by PdfParent
+ //  tempString = ParInfoToString("_Axis_",axisNumber,"_Bin",	 //  tempString = ParInfoToString("_Axis_",axisNumber,"_Bin",
+//   axisInfo.clear();						//   axisInfo.clear();
+//   ostr.str(axisInfo);					//   ostr.str(axisInfo);
+//   ostr << "Pdf_" << pdfNum << tempString;			//   ostr << "Pdf_" << pdfNum << tempString;
+//   axisInfo = ostr.str();					//   axisInfo = ostr.str();
+//   while(config.keyExists(axisInfo)) {			//   while(config.keyExists(axisInfo)) {
+//     double current = config.read<double>(axisInfo);		//     double current = config.read<double>(axisInfo);
+//     binVec.push_back(current);				//     binVec.push_back(current);
+
+//     binNum++;						//     binNum++;
+//     tempString = ParInfoToString("_Axis_",axisNumber,"_Bin	//     tempString = ParInfoToString("_Axis_",axisNumber,"_Bin
+//     axisInfo.clear();					//     axisInfo.clear();
+//     ostr.str(axisInfo);					//     ostr.str(axisInfo);
+//     ostr << "Pdf_" << pdfNum << tempString;			//     ostr << "Pdf_" << pdfNum << tempString;
+//     axisInfo = ostr.str();					//     axisInfo = ostr.str();
+//   }								//   }
+  								  
+  if(axisNumber ==0) {						  if(axisNumber ==0) {
+    binVec = xAxisBins;						    binVec = xAxisBins;
+  } else if(axisNumber == 1) {					  } else if(axisNumber == 1) {
+    binVec = yAxisBins;						    binVec = yAxisBins;
+  } else if(axisNumber == 2) {					  } else if(axisNumber == 2) {
+    binVec = zAxisBins;						    binVec = zAxisBins;
+  }								  }
+
+  if(binVec.size() < 2) {					  if(binVec.size() < 2) {
+    Errors::AddError("Error in "+axisInfo+": need at least on	    Errors::AddError("Error in "+axisInfo+": need at least on
+		     "(two boundaries)");					     "(two boundaries)");
+    succeeded =  false;						    succeeded =  false;
+  } else {							  } else {
+    int nBounds = binVec.size();				    int nBounds = binVec.size();
+    binBoundaries = new Double_t[nBounds];			    binBoundaries = new Double_t[nBounds];
+    for(int i=0; i < nBounds; i++)				    for(int i=0; i < nBounds; i++)
+      binBoundaries[i] = binVec[i];				      binBoundaries[i] = binVec[i];
+    if(axisNumber == 0) {					    if(axisNumber == 0) {
+      masterPdf->GetXaxis()->Set(nBounds-1, binBoundaries);	      masterPdf->GetXaxis()->Set(nBounds-1, binBoundaries);
+    } else if(axisNumber == 1) {				    } else if(axisNumber == 1) {
+      masterPdf->GetYaxis()->Set(nBounds-1, binBoundaries);	      masterPdf->GetYaxis()->Set(nBounds-1, binBoundaries);
+    } else if(axisNumber == 2) {				    } else if(axisNumber == 2) {
+      masterPdf->GetZaxis()->Set(nBounds-1, binBoundaries);	      masterPdf->GetZaxis()->Set(nBounds-1, binBoundaries);
+    }								    }
+  }								  }
+
+  axisInfo.clear();						  axisInfo.clear();
+  ostr.str(axisInfo);						  ostr.str(axisInfo);
+  ostr << "Pdf_" << pdfNum << "_Axis_" << axisNumber;		  ostr << "Pdf_" << pdfNum << "_Axis_" << axisNumber;
+  axisInfo = ostr.str();					  axisInfo = ostr.str();
+
+//   string axisName = config.read<string>(axisInfo+"_Name","	//   string axisName = config.read<string>(axisInfo+"_Name","
+//   if(axisName == "") {					//   if(axisName == "") {
+//     Errors::AddError("Error: "+axisInfo+"_Name not defined	//     Errors::AddError("Error: "+axisInfo+"_Name not defined
+//     succeeded = false;					//     succeeded = false;
+//   } else {							//   } else {
+//     cout << "Found axis " << axisName << " for Pdf " << na	//     cout << "Found axis " << axisName << " for Pdf " << na
+//     if(axisNumber == 0)					//     if(axisNumber == 0)
+//       masterPdf->GetXaxis()->SetTitle(axisName.c_str());	//       masterPdf->GetXaxis()->SetTitle(axisName.c_str());
+//     if(axisNumber == 1)					//     if(axisNumber == 1)
+//       masterPdf->GetYaxis()->SetTitle(axisName.c_str());	//       masterPdf->GetYaxis()->SetTitle(axisName.c_str());
+//     if(axisNumber == 2)					//     if(axisNumber == 2)
+//       masterPdf->GetZaxis()->SetTitle(axisName.c_str());	//       masterPdf->GetZaxis()->SetTitle(axisName.c_str());
+//   }								//   }
+//   axisNames.push_back(axisName);				//   axisNames.push_back(axisName);
+
+//   Int_t position = SearchStringVector(mcBranches, axisName	//   Int_t position = SearchStringVector(mcBranches, axisName
+//   if(position == -1) {					//   if(position == -1) {
+//     //axisName not in the branches in the tree, abort	//     //axisName not in the branches in the tree, abort
+//     Errors::AddError("Error: "+axisName+" not in MC Branch	//     Errors::AddError("Error: "+axisName+" not in MC Branch
+//     cout << "position == -1 for " << axisName << endl;	//     cout << "position == -1 for " << axisName << endl;
+//     succeeded = false;					//     succeeded = false;
+//   } else {							//   } else {
+//     axisNums.push_back(position);				//     axisNums.push_back(position);
+//     cout << axisName << " found in mcBranches at position 	//     cout << axisName << " found in mcBranches at position 
+//   }								//   }
+
+  delete [] binBoundaries;					  delete [] binBoundaries;
+
+  return succeeded;						  return succeeded;
+}								}
+
+void Pdf3D::PrintState() {					void Pdf3D::PrintState() {
+  cout << "Printing state of " << name << " of class Pdf3D\n"	  cout << "Printing state of " << name << " of class Pdf3D\n"
+
+  masterPdf->Print();						  masterPdf->Print();
+  cout << "nPdfBinsX = " << masterPdf->GetNbinsX() << endl;	  cout << "nPdfBinsX = " << masterPdf->GetNbinsX() << endl;
+  cout << "nPdfBinsY = " << masterPdf->GetNbinsY() << endl;	  cout << "nPdfBinsY = " << masterPdf->GetNbinsY() << endl;
+  cout << "nPdfBinsZ = " << masterPdf->GetNbinsZ() << endl;	  cout << "nPdfBinsZ = " << masterPdf->GetNbinsZ() << endl;
+  cout << "Bin Centers: " << endl;				  cout << "Bin Centers: " << endl;
+  for(int i=0; i < masterPdf->GetNbinsX(); i++)			  for(int i=0; i < masterPdf->GetNbinsX(); i++)
+    cout << "X bin " << i << ": " << masterPdf->GetXaxis()->G	    cout << "X bin " << i << ": " << masterPdf->GetXaxis()->G
+  for(int i=0; i < masterPdf->GetNbinsY(); i++)			  for(int i=0; i < masterPdf->GetNbinsY(); i++)
+    cout << "Y bin " << i << ": " << masterPdf->GetYaxis()->G	    cout << "Y bin " << i << ": " << masterPdf->GetYaxis()->G
+  for(int i=0; i < masterPdf->GetNbinsZ(); i++)			  for(int i=0; i < masterPdf->GetNbinsZ(); i++)
+    cout << "Z bin " << i << ": " << masterPdf->GetZaxis()->G	    cout << "Z bin " << i << ": " << masterPdf->GetZaxis()->G
+  								  
+  cout << "nDataPoints = " << nDataPoints << endl;		  cout << "nDataPoints = " << nDataPoints << endl;
+  cout << "pdfNum = " << pdfNum << endl;			  cout << "pdfNum = " << pdfNum << endl;
+  cout << "pdfDim = " << pdfDim << endl;			  cout << "pdfDim = " << pdfDim << endl;
+  cout << "logLikelihood = " << logLikelihood << endl;		  cout << "logLikelihood = " << logLikelihood << endl;
+  cout << "totalEvents = " << totalEvents << endl;		  cout << "totalEvents = " << totalEvents << endl;
+  for(int i=0; i < pars.size(); i++)				  for(int i=0; i < pars.size(); i++)
+    cout << "pars[" << i << "] = " << pars[i] << endl;		    cout << "pars[" << i << "] = " << pars[i] << endl;
+  for(int i=0; i < parNames.size(); i++)			  for(int i=0; i < parNames.size(); i++)
+    cout << "parNames[" << i << "] = " << parNames[i] << endl	    cout << "parNames[" << i << "] = " << parNames[i] << endl
+  for(int i=0; i < parNums.size(); i++)				  for(int i=0; i < parNums.size(); i++)
+    cout << "parNums[" << i << "] = " << parNums[i] << endl;	    cout << "parNums[" << i << "] = " << parNums[i] << endl;
+  for(int i=0; i < mcBranches.size(); i++)			  for(int i=0; i < mcBranches.size(); i++)
+    cout << "mcBranches[" << i << "] = " << mcBranches[i] << 	    cout << "mcBranches[" << i << "] = " << mcBranches[i] << 
+  for(int i=0; i < axisNames.size(); i++)			  for(int i=0; i < axisNames.size(); i++)
+    cout << "axisNames[" << i << "] = " << axisNames[i] << en	    cout << "axisNames[" << i << "] = " << axisNames[i] << en
+  for(int i=0; i < axisNums.size(); i++)			  for(int i=0; i < axisNums.size(); i++)
+    cout << "axisNums[" << i << "] = " << axisNums[i] << endl	    cout << "axisNums[" << i << "] = " << axisNums[i] << endl
+  //Print out histo contents(!)					  //Print out histo contents(!)
+  for(int xBin=1; xBin <= masterPdf->GetXaxis()->GetNbins(); 	  for(int xBin=1; xBin <= masterPdf->GetXaxis()->GetNbins(); 
+    for(int yBin=1; yBin <= masterPdf->GetYaxis()->GetNbins()	    for(int yBin=1; yBin <= masterPdf->GetYaxis()->GetNbins()
+      for(int zBin=1; zBin <= masterPdf->GetZaxis()->GetNbins	      for(int zBin=1; zBin <= masterPdf->GetZaxis()->GetNbins
+	cout << "Bin(" << xBin << "," << yBin << "," << zBin 		cout << "Bin(" << xBin << "," << yBin << "," << zBin 
+	cout << masterPdf->GetBinContent(xBin,yBin,zBin) << e		cout << masterPdf->GetBinContent(xBin,yBin,zBin) << e
+      }								      }
+    }								    }
+  }  								  }  
+  for(int i=0; i < systematics.size(); i++)			  for(int i=0; i < systematics.size(); i++)
+    systematics[i]->PrintState();				    systematics[i]->PrintState();
+  for(int i=0; i < backgrounds.size(); i++)			  for(int i=0; i < backgrounds.size(); i++)
+    backgrounds[i]->PrintState();				    backgrounds[i]->PrintState();
+
+  								  
+}								}
+
+void Pdf3D::Draw(string fileToWriteTo) {			void Pdf3D::Draw(string fileToWriteTo) {
+  //Ideally, want it to print out the "final" graphs like Bla	  //Ideally, want it to print out the "final" graphs like Bla
+
+  gStyle->SetOptFit(0);						  gStyle->SetOptFit(0);
+  gStyle->SetOptStat(0);					  gStyle->SetOptStat(0);
+
+
+  //Will make three 1-D projections, one for each data axis.	  //Will make three 1-D projections, one for each data axis.
+  TCanvas *mycanvas = new TCanvas(name.c_str(),name.c_str());	  TCanvas *mycanvas = new TCanvas(name.c_str(),name.c_str());
+							      >	  //mycanvas->SetLogy();
+  mycanvas->cd();						  mycanvas->cd();
+  								  
+  TH1D *dataHisto, *mcHisto, **fluxHisto;			  TH1D *dataHisto, *mcHisto, **fluxHisto;
+  fluxHisto = new TH1D*[fluxes.size()];				  fluxHisto = new TH1D*[fluxes.size()];
+  								  
+  //Build 3-D data histo for computing chi^2			  //Build 3-D data histo for computing chi^2
+  Double_t *xbins = new Double_t[xAxisBins.size()];		  Double_t *xbins = new Double_t[xAxisBins.size()];
+  Double_t *ybins = new Double_t[yAxisBins.size()];		  Double_t *ybins = new Double_t[yAxisBins.size()];
+  Double_t *zbins = new Double_t[zAxisBins.size()];		  Double_t *zbins = new Double_t[zAxisBins.size()];
+  for(int i=0; i < xAxisBins.size(); i++)			  for(int i=0; i < xAxisBins.size(); i++)
+    cout << "xbins[" << i << "] = " << xAxisBins[i] << endl;	    cout << "xbins[" << i << "] = " << xAxisBins[i] << endl;
+  for(int i=0; i < xAxisBins.size(); i++)			  for(int i=0; i < xAxisBins.size(); i++)
+    xbins[i] = xAxisBins[i];					    xbins[i] = xAxisBins[i];
+  for(int i=0; i < yAxisBins.size(); i++)			  for(int i=0; i < yAxisBins.size(); i++)
+    ybins[i] = yAxisBins[i];					    ybins[i] = yAxisBins[i];
+  for(int i=0; i < zAxisBins.size(); i++)			  for(int i=0; i < zAxisBins.size(); i++)
+    zbins[i] = zAxisBins[i];					    zbins[i] = zAxisBins[i];
+  TH3D *dataPdf = new TH3D("data","data",xAxisBins.size()-1,x	  TH3D *dataPdf = new TH3D("data","data",xAxisBins.size()-1,x
+			   yAxisBins.size()-1,ybins, zAxisBin				   yAxisBins.size()-1,ybins, zAxisBin
+  dataPdf->Reset();						  dataPdf->Reset();
+  for(int i=0; i < nDataPoints; i++) {				  for(int i=0; i < nDataPoints; i++) {
+    dataPdf->Fill(dataArray[3*i],dataArray[3*i+1],dataArray[3	    dataPdf->Fill(dataArray[3*i],dataArray[3*i+1],dataArray[3
+  }								  }
+
+  //Compute chi^2, assume an error of 1 if counts = 0		  //Compute chi^2, assume an error of 1 if counts = 0
+  Double_t dataValue=0, pdfValue=0, chisq=0, sigmaSq = 1;	  Double_t dataValue=0, pdfValue=0, chisq=0, sigmaSq = 1;
+  Int_t nDOF = 0;						  Int_t nDOF = 0;
+  for(int x=1; x <= masterPdf->GetNbinsX(); x++) {		  for(int x=1; x <= masterPdf->GetNbinsX(); x++) {
+    for(int y=1; y <= masterPdf->GetNbinsY(); y++) {		    for(int y=1; y <= masterPdf->GetNbinsY(); y++) {
+      for(int z=1; z <= masterPdf->GetNbinsZ(); z++) {		      for(int z=1; z <= masterPdf->GetNbinsZ(); z++) {
+	pdfValue = masterPdf->GetBinContent(x,y,z);			pdfValue = masterPdf->GetBinContent(x,y,z);
+	dataValue = dataPdf->GetBinContent(x,y,z);			dataValue = dataPdf->GetBinContent(x,y,z);
+	sigmaSq = dataValue;						sigmaSq = dataValue;
+	if(sigmaSq <= 1)						if(sigmaSq <= 1)
+	  sigmaSq = 1;							  sigmaSq = 1;
+	chisq += (pdfValue-dataValue)*(pdfValue-dataValue)/si		chisq += (pdfValue-dataValue)*(pdfValue-dataValue)/si
+	nDOF++;								nDOF++;
+      }								      }
+    }								    }
+  }								  }
+  cout << "Chi^2 = " << chisq << " for " << nDOF << " bins\n"	  cout << "Chi^2 = " << chisq << " for " << nDOF << " bins\n"
+
+  delete dataPdf;						  delete dataPdf;
+  delete [] xbins;						  delete [] xbins;
+  delete [] ybins;						  delete [] ybins;
+  delete [] zbins;						  delete [] zbins;
+
+  string tempFilename;						  string tempFilename;
+  char lastChar = fileToWriteTo[fileToWriteTo.size()-1];	  char lastChar = fileToWriteTo[fileToWriteTo.size()-1];
+  if(lastChar == '(' || lastChar == ')' || lastChar == '!')	  if(lastChar == '(' || lastChar == ')' || lastChar == '!')
+    tempFilename = fileToWriteTo.substr(0,fileToWriteTo.size(	    tempFilename = fileToWriteTo.substr(0,fileToWriteTo.size(
+  else								  else
+    tempFilename = fileToWriteTo;				    tempFilename = fileToWriteTo;
+
+  string outputCSVName;						  string outputCSVName;
+  Int_t dotLocation = tempFilename.find_last_of(".");		  Int_t dotLocation = tempFilename.find_last_of(".");
+  if(dotLocation == -1)						  if(dotLocation == -1)
+    outputCSVName = tempFilename + ".csv";			    outputCSVName = tempFilename + ".csv";
+  else								  else
+    outputCSVName = tempFilename.substr(0,dotLocation) + ".cs	    outputCSVName = tempFilename.substr(0,dotLocation) + ".cs
+  ofstream outputCSV;						  ofstream outputCSV;
+  if(lastChar == '(')						  if(lastChar == '(')
+    outputCSV.open(outputCSVName.c_str());			    outputCSV.open(outputCSVName.c_str());
+  else								  else
+    outputCSV.open(outputCSVName.c_str(),ios_base::out | ios_	    outputCSV.open(outputCSVName.c_str(),ios_base::out | ios_
+  								  
+  								  
+  for(int axisToDraw = 0; axisToDraw < 3; axisToDraw++) {	  for(int axisToDraw = 0; axisToDraw < 3; axisToDraw++) {
+    //Draw fluxes.  Will need to do bkgds too, later		    //Draw fluxes.  Will need to do bkgds too, later
+    if(lastChar == '(' || lastChar == ')' || lastChar == '!')	    if(lastChar == '(' || lastChar == ')' || lastChar == '!')
+      tempFilename = fileToWriteTo.substr(0,fileToWriteTo.siz	      tempFilename = fileToWriteTo.substr(0,fileToWriteTo.siz
+    else							    else
+      tempFilename = fileToWriteTo;				      tempFilename = fileToWriteTo;
+
+							      >	    Double_t histoMin = 1;
+    Double_t fluxEvents;					    Double_t fluxEvents;
+    Double_t *fluxEventsPtr = &fluxEvents;			    Double_t *fluxEventsPtr = &fluxEvents;
+    for(int i = 0; i < fluxes.size(); i++) {			    for(int i = 0; i < fluxes.size(); i++) {
+      fluxHisto[i] = DrawFlux(i,axisToDraw,fluxEventsPtr);	      fluxHisto[i] = DrawFlux(i,axisToDraw,fluxEventsPtr);
+      if(axisToDraw == 0) {					      if(axisToDraw == 0) {
+	outputCSV << fluxes[i]->GetName() << "," << fluxEvent		outputCSV << fluxes[i]->GetName() << "," << fluxEvent
+      }								      }
+							      >	      if(histoMin > fluxHisto[i]->GetBinContent(fluxHisto[i]-
+							      >		histoMin =  fluxHisto[i]->GetBinContent(fluxHisto[i]-
+    }								    }
+							      >	    histoMin = histoMin/1.259; //Adjust one tick on log scale
+    								    
+    dataHisto = new TH1D(name.c_str(),name.c_str(),4,0,1);	    dataHisto = new TH1D(name.c_str(),name.c_str(),4,0,1);
+    mcHisto = new TH1D("mcHisto","mcHisto",4,0,1);		    mcHisto = new TH1D("mcHisto","mcHisto",4,0,1);
+    vector<Double_t> axisVec;					    vector<Double_t> axisVec;
+    if(axisToDraw == 0 && (lastChar == '(' || lastChar == '!'	    if(axisToDraw == 0 && (lastChar == '(' || lastChar == '!'
+      tempFilename = tempFilename + "(";			      tempFilename = tempFilename + "(";
+    if(axisToDraw == 2 && (lastChar == ')' || lastChar == '!'	    if(axisToDraw == 2 && (lastChar == ')' || lastChar == '!'
+      tempFilename = tempFilename + ")";			      tempFilename = tempFilename + ")";
+
+    //cout << "tempFilename: " << tempFilename << " for input	    //cout << "tempFilename: " << tempFilename << " for input
+    //cout << fileToWriteTo << endl;				    //cout << fileToWriteTo << endl;
+
+    if(axisToDraw == 0) {					    if(axisToDraw == 0) {
+      axisVec = xAxisBins;					      axisVec = xAxisBins;
+    } else if(axisToDraw == 1) {				    } else if(axisToDraw == 1) {
+      axisVec = yAxisBins;					      axisVec = yAxisBins;
+    } else if(axisToDraw == 2) {				    } else if(axisToDraw == 2) {
+      axisVec = zAxisBins;					      axisVec = zAxisBins;
+    }								    }
+
+    Double_t *binsArray = new Double_t[axisVec.size()];		    Double_t *binsArray = new Double_t[axisVec.size()];
+    for(int i=0; i < axisVec.size(); i++) {			    for(int i=0; i < axisVec.size(); i++) {
+      binsArray[i] = axisVec[i];				      binsArray[i] = axisVec[i];
+    }								    }
+    dataHisto->GetXaxis()->Set(axisVec.size()-1, binsArray);	    dataHisto->GetXaxis()->Set(axisVec.size()-1, binsArray);
+    dataHisto->GetXaxis()->SetTitle(axisNames[axisToDraw].c_s	    dataHisto->GetXaxis()->SetTitle(axisNames[axisToDraw].c_s
+    dataHisto->Rebuild();					    dataHisto->Rebuild();
+
+    mcHisto->GetXaxis()->Set(axisVec.size()-1, binsArray);	    mcHisto->GetXaxis()->Set(axisVec.size()-1, binsArray);
+    mcHisto->GetXaxis()->SetTitle(axisNames[axisToDraw].c_str	    mcHisto->GetXaxis()->SetTitle(axisNames[axisToDraw].c_str
+    mcHisto->Rebuild();						    mcHisto->Rebuild();
+
+    for(int event=axisToDraw; event < 3*nDataPoints; event+=3	    for(int event=axisToDraw; event < 3*nDataPoints; event+=3
+      //Fill data histo, organized as (xyzxyzxyzxyz)		      //Fill data histo, organized as (xyzxyzxyzxyz)
+      dataHisto->Fill(dataArray[event]);			      dataHisto->Fill(dataArray[event]);
+    }								    }
+
+    mcHisto->Reset();						    mcHisto->Reset();
+    for(int i=0; i < fluxes.size(); i++) {			    for(int i=0; i < fluxes.size(); i++) {
+      mcHisto->Add(fluxHisto[i]);				      mcHisto->Add(fluxHisto[i]);
+    }								    }
+
+    Double_t maxValue;						    Double_t maxValue;
+    maxValue = dataHisto->GetBinContent(dataHisto->GetMaximum	    maxValue = dataHisto->GetBinContent(dataHisto->GetMaximum
+    Double_t tempMax = mcHisto->GetBinContent(mcHisto->GetMax	    Double_t tempMax = mcHisto->GetBinContent(mcHisto->GetMax
+    if(tempMax > maxValue)					    if(tempMax > maxValue)
+      maxValue = tempMax;					      maxValue = tempMax;
+
+    mycanvas->Clear();						    mycanvas->Clear();
+    mycanvas->cd();						    mycanvas->cd();
+
+    dataHisto->SetLineColor(1);					    dataHisto->SetLineColor(1);
+    dataHisto->SetMinimum(0);				      |	    dataHisto->SetMinimum(histoMin);
+    dataHisto->SetMaximum(maxValue*1.1);			    dataHisto->SetMaximum(maxValue*1.1);
+    dataHisto->Draw("P0 E1 X0 *H");				    dataHisto->Draw("P0 E1 X0 *H");
+//     masterPdf->SetLineColor(2);				//     masterPdf->SetLineColor(2);
+//     masterPdf->Draw("SAME");					//     masterPdf->Draw("SAME");
+    mcHisto->SetLineColor(2);					    mcHisto->SetLineColor(2);
+    mcHisto->Draw("SAME");					    mcHisto->Draw("SAME");
+    for(int i=0; i < fluxes.size(); i++) {			    for(int i=0; i < fluxes.size(); i++) {
+      fluxHisto[i]->SetLineColor((i+2)%9+1);			      fluxHisto[i]->SetLineColor((i+2)%9+1);
+      fluxHisto[i]->Draw("SAME");				      fluxHisto[i]->Draw("SAME");
+    }								    }
+
+    //These define the boundaries of points in the graph	    //These define the boundaries of points in the graph
+    //The graph runs from 0.1 to 0.9 in "TLegend" coordinates	    //The graph runs from 0.1 to 0.9 in "TLegend" coordinates
+    //Double_t plotXMin=axisVec[0], plotXMax=axisVec[axisVec.	    //Double_t plotXMin=axisVec[0], plotXMax=axisVec[axisVec.
+    //Double_t plotYMin=0, plotYMax=maxValue*1.1;		    //Double_t plotYMin=0, plotYMax=maxValue*1.1;
+    								    
+    cout << "TotalEvents = " << totalEvents << endl;		    cout << "TotalEvents = " << totalEvents << endl;
+
+    Double_t xmin=0.9, xmax=0.99, ymin=0.6, ymax=0.9;		    Double_t xmin=0.9, xmax=0.99, ymin=0.6, ymax=0.9;
+    								    
+    TLegend *mylegend = new TLegend(xmin,ymin,xmax,ymax);	    TLegend *mylegend = new TLegend(xmin,ymin,xmax,ymax);
+    mylegend->SetBorderSize(1);					    mylegend->SetBorderSize(1);
+    mylegend->AddEntry(dataHisto,"Data");			    mylegend->AddEntry(dataHisto,"Data");
+    mylegend->AddEntry(mcHisto,"MC");				    mylegend->AddEntry(mcHisto,"MC");
+    for(int i=0; i < fluxes.size(); i++)			    for(int i=0; i < fluxes.size(); i++)
+      mylegend->AddEntry(fluxHisto[i],(fluxes[i]->GetName()).	      mylegend->AddEntry(fluxHisto[i],(fluxes[i]->GetName()).
+    mylegend->Draw();						    mylegend->Draw();
+
+    //cout << tempFilename << endl;				    //cout << tempFilename << endl;
+
+    mycanvas->SaveAs(tempFilename.c_str());			    mycanvas->SaveAs(tempFilename.c_str());
+
+    masterPdf->SetLineColor(kBlack);				    masterPdf->SetLineColor(kBlack);
+
+    outputCSV.close();						    outputCSV.close();
+
+    delete mylegend;						    delete mylegend;
+    delete dataHisto;						    delete dataHisto;
+    delete mcHisto;						    delete mcHisto;
+    for(int i=0; i < fluxes.size(); i++)			    for(int i=0; i < fluxes.size(); i++)
+      delete fluxHisto[i];					      delete fluxHisto[i];
+    delete [] binsArray;					    delete [] binsArray;
+
+  }								  }
+
+  delete mycanvas;						  delete mycanvas;
+  delete [] fluxHisto;						  delete [] fluxHisto;
+
+}								}
+
+TH1D* Pdf3D::DrawFlux(Int_t fluxNumber, Int_t axisToDraw, 	TH1D* Pdf3D::DrawFlux(Int_t fluxNumber, Int_t axisToDraw, 
+		      Double_t *fluxCount) {					      Double_t *fluxCount) {
+
+  //int nSys = systematics.size();				  //int nSys = systematics.size();
+  Int_t fluxNum = fluxNumber;					  Int_t fluxNum = fluxNumber;
+
+  string fluxName = fluxes[fluxNum]->GetName();			  string fluxName = fluxes[fluxNum]->GetName();
+
+  //Get axis right						  //Get axis right
+  vector<Double_t> axisVec;					  vector<Double_t> axisVec;
+  if(axisToDraw == 0) {						  if(axisToDraw == 0) {
+    axisVec = xAxisBins;					    axisVec = xAxisBins;
+    fluxName = fluxName + "_x";					    fluxName = fluxName + "_x";
+  } else if(axisToDraw == 1) {					  } else if(axisToDraw == 1) {
+    axisVec = yAxisBins;					    axisVec = yAxisBins;
+    fluxName = fluxName + "_y";					    fluxName = fluxName + "_y";
+  } else if(axisToDraw == 2) {					  } else if(axisToDraw == 2) {
+    axisVec = zAxisBins;					    axisVec = zAxisBins;
+    fluxName = fluxName + "_z";					    fluxName = fluxName + "_z";
+  }								  }
+
+  TH1D *dataHisto = new TH1D(fluxName.c_str(),fluxName.c_str(	  TH1D *dataHisto = new TH1D(fluxName.c_str(),fluxName.c_str(
+
+
+  Double_t *binsArray = new Double_t[axisVec.size()];		  Double_t *binsArray = new Double_t[axisVec.size()];
+  for(int i=0; i < axisVec.size(); i++) {			  for(int i=0; i < axisVec.size(); i++) {
+    binsArray[i] = axisVec[i];					    binsArray[i] = axisVec[i];
+  }								  }
+  dataHisto->GetXaxis()->Set(axisVec.size()-1, binsArray);	  dataHisto->GetXaxis()->Set(axisVec.size()-1, binsArray);
+  dataHisto->GetXaxis()->SetTitle(axisNames[axisToDraw].c_str	  dataHisto->GetXaxis()->SetTitle(axisNames[axisToDraw].c_str
+  dataHisto->Rebuild();						  dataHisto->Rebuild();
+
+  //Set flux number in Sys, kludgy				  //Set flux number in Sys, kludgy
+  for(int i=0; i < systematics.size(); i++) {			  for(int i=0; i < systematics.size(); i++) {
+    systematics[i]->SetFluxType(fluxes[fluxNum]->GetFluxType(	    systematics[i]->SetFluxType(fluxes[fluxNum]->GetFluxType(
+  }								  }
+  								  
+  const vector<Double_t>& eventData = fluxes[fluxNum]->GetEve	  const vector<Double_t>& eventData = fluxes[fluxNum]->GetEve
+  								  
+  vector<Double_t> difference;					  vector<Double_t> difference;
+  int nFluxEvents = fluxes[fluxNum]->GetNEvents();		  int nFluxEvents = fluxes[fluxNum]->GetNEvents();
+  Double_t weight = fluxes[fluxNum]->GetFluxSize() / fluxes[f	  Double_t weight = fluxes[fluxNum]->GetFluxSize() / fluxes[f
+  difference.assign(eventData.size(),0);			  difference.assign(eventData.size(),0);
+  int eventDataSize = eventData.size();				  int eventDataSize = eventData.size();
+  int weightLocation = eventDataSize - 1;			  int weightLocation = eventDataSize - 1;
+
+  vector<Sys*> activeSys;					  vector<Sys*> activeSys;
+  for(int i=0; i < systematics.size(); i++)			  for(int i=0; i < systematics.size(); i++)
+    if(systematics[i]->CheckIfAffected())			    if(systematics[i]->CheckIfAffected())
+      activeSys.push_back(systematics[i]);			      activeSys.push_back(systematics[i]);
+  Int_t numActiveSys = activeSys.size();			  Int_t numActiveSys = activeSys.size();
+  								  
+  for(int eventNum=0; eventNum < nFluxEvents; eventNum++) {	  for(int eventNum=0; eventNum < nFluxEvents; eventNum++) {
+    fluxes[fluxNum]->GetEvent(eventNum);			    fluxes[fluxNum]->GetEvent(eventNum);
+    //Kludgy.  Need a better way				    //Kludgy.  Need a better way
+    //difference.assign(eventData.size(),0);			    //difference.assign(eventData.size(),0);
+    for(int i=0; i < weightLocation; i++) {			    for(int i=0; i < weightLocation; i++) {
+      difference[i] = 0;					      difference[i] = 0;
+    }								    }
+    difference[weightLocation]=1;				    difference[weightLocation]=1;
+
+    //Apply sys to event					    //Apply sys to event
+    for(int sysNum = 0; sysNum < numActiveSys; sysNum++) {	    for(int sysNum = 0; sysNum < numActiveSys; sysNum++) {
+      activeSys[sysNum]->Apply(eventData, difference);		      activeSys[sysNum]->Apply(eventData, difference);
+    }								    }
+    for(int i=0; i < eventDataSize; i++)			    for(int i=0; i < eventDataSize; i++)
+      difference[i] += eventData[i];				      difference[i] += eventData[i];
+
+    //Trim on all axes, needed to get sizes right		    //Trim on all axes, needed to get sizes right
+    if(difference[axisNums[0]] < xAxisBins[0] || 		    if(difference[axisNums[0]] < xAxisBins[0] || 
+       difference[axisNums[0]] > xAxisBins[xAxisBins.size()-1	       difference[axisNums[0]] > xAxisBins[xAxisBins.size()-1
+      continue;							      continue;
+    if(difference[axisNums[1]] < yAxisBins[0] || 		    if(difference[axisNums[1]] < yAxisBins[0] || 
+       difference[axisNums[1]] > yAxisBins[yAxisBins.size()-1	       difference[axisNums[1]] > yAxisBins[yAxisBins.size()-1
+      continue;							      continue;
+    if(difference[axisNums[2]] < zAxisBins[0] || 		    if(difference[axisNums[2]] < zAxisBins[0] || 
+       difference[axisNums[2]] > zAxisBins[zAxisBins.size()-1	       difference[axisNums[2]] > zAxisBins[zAxisBins.size()-1
+      continue;							      continue;
+
+    dataHisto->Fill(difference[axisNums[axisToDraw]],		    dataHisto->Fill(difference[axisNums[axisToDraw]],
+		    weight*difference[weightLocation]);				    weight*difference[weightLocation]);
+  }								  }
+  								  
+  Double_t totalFluxEvents = 0;					  Double_t totalFluxEvents = 0;
+
+  for(int i=1; i <= dataHisto->GetXaxis()->GetNbins(); i++)	  for(int i=1; i <= dataHisto->GetXaxis()->GetNbins(); i++)
+    totalFluxEvents += dataHisto->GetBinContent(i);		    totalFluxEvents += dataHisto->GetBinContent(i);
+
+  //totalFluxEvents = dataHisto->Integral();			  //totalFluxEvents = dataHisto->Integral();
+
+
+  cout << "Flux " << fluxes[fluxNum]->GetName() << " has ";	  cout << "Flux " << fluxes[fluxNum]->GetName() << " has ";
+  cout << totalFluxEvents << " events\n";			  cout << totalFluxEvents << " events\n";
+
+  if(fluxCount != NULL)						  if(fluxCount != NULL)
+    *fluxCount = totalFluxEvents;				    *fluxCount = totalFluxEvents;
+
+  delete [] binsArray;						  delete [] binsArray;
+  								  
+//   TCanvas temp("temp","temp");				//   TCanvas temp("temp","temp");
+//   temp.cd();							//   temp.cd();
+//   dataHisto->Draw();						//   dataHisto->Draw();
+//   temp.SaveAs((fluxName+".ps").c_str());			//   temp.SaveAs((fluxName+".ps").c_str());
+
+  return dataHisto;						  return dataHisto;
+  								  
+}								}
