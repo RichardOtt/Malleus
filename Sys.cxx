@@ -64,7 +64,11 @@ vector<string> Sys::ReadConfig(vector<string> mcmcParNames,
   
   if(config.keyExists(sysTitle+"_Function")) {
     string funcName = config.read<string>(sysTitle+"_Function");
-    //Do something about setting up sys function
+    sysFunc = Decider::GenerateFunctionFromString(funcName);
+    if(sysFunc == NULL) {
+      Errors::AddError("Error: Function "+funcName+" requested in Sys"+\
+		       name+" not in FunctionDefs.h");
+    }
   } else {
     Errors::AddError("Error: "+sysTitle+"_Function not defined");
     found = false;

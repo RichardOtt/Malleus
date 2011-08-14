@@ -17,6 +17,7 @@ Need to document how it works and how to use
 #include "ConfigFile.h"
 #include "FunctionDefs.h"
 #include "RealFunction.h"
+#include "Decider.h"
 using namespace std;
 
 #ifndef _SYS_H_

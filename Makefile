@@ -11,11 +11,14 @@ DRAWOBJ= $(DRAWSRC:.cxx=.o)
 METAOBJ= $(METASRC:.cxx=.o)
 GENERATEMAPOBJ= $(GENERATEMAPSRC:.cxx=.o)
 
-SRC = main.cxx MCMC.cxx PdfParent.cxx Pdf1D.cxx Pdf3D.cxx Sys.cxx Flux.cxx Bkgd.cxx ConfigFile.cxx Errors.cxx Tools.cxx RealFunction.cxx
+SRC = main.cxx MCMC.cxx PdfParent.cxx Pdf1D.cxx Pdf3D.cxx Sys.cxx Flux.cxx\
+	 Bkgd.cxx ConfigFile.cxx Errors.cxx Tools.cxx RealFunction.cxx\
+	 Decider.cxx
 #SRC = testBkgdCopy.cxx Errors.cxx Tools.cxx
 #SRC = testFill.cxx
 DRAWSRC = drawResults.cxx MCMC.cxx PdfParent.cxx Pdf1D.cxx Pdf3D.cxx Sys.cxx\
-	 Flux.cxx Bkgd.cxx ConfigFile.cxx Errors.cxx Tools.cxx RealFunction.cxx
+	 Flux.cxx Bkgd.cxx ConfigFile.cxx Errors.cxx\
+	 Tools.cxx RealFunction.cxx Decider.cxx
 METASRC = metaConfig.cxx Errors.cxx Tools.cxx
 GENERATEMAPSRC = generateMap.cxx Errors.cxx Tools.cxx
 
@@ -56,7 +59,7 @@ autoFit.exe: ./autoFit.C
 $(OBJ):  %.o: %.cxx Makefile
 	$(CPP) $(FLAGS) -c $(INCS) -o $@ $<
 
-$(EXE): $(OBJ)
+$(EXE): $(OBJ) $(GENERATEMAPEXE)
 	$(CPP) $(LFLAGS) $(INCS) $(LIBS) -o $@ $(OBJ)
 
 drawResults.o:  drawResults.cxx Makefile
@@ -71,6 +74,9 @@ metaConfig.o: metaConfig.cxx Makefile
 generateMap.o: generateMap.cxx Makefile
 	$(CPP) $(FLAGS) -c $(INCS) -o $@ $<
 
+Decider.cxx: $(GENERATEMAPEXE) FunctionDefs.h
+	generateMap.exe FunctionDefs.h > Decider.cxx
+
 $(METAEXE): $(METAOBJ)
 	$(CPP) $(LFLAGS) $(INCS) $(LIBS) -o $@ $(METAOBJ)
 
@@ -81,6 +87,6 @@ depend : $(SRC)
 	makedepend -- $(INCS) -- $(SRC)
 
 clean: 
-	rm -f $(OBJ) $(DRAWOBJ) $(METAOBJ) $(GENERATEMAPOBJ) $(EXE) $(DRAWEXE) $(METAEXE) $(GENERATEMAPEXE) autoFit.exe getAutoCorr.exe *~ *.bak
+	rm -f $(OBJ) $(DRAWOBJ) $(METAOBJ) $(GENERATEMAPOBJ) $(EXE) $(DRAWEXE) $(METAEXE) $(GENERATEMAPEXE) Decider.cxx autoFit.exe getAutoCorr.exe *~ *.bak
 
 
