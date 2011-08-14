@@ -52,9 +52,11 @@ class Sys {
   ~Sys();
   vector<string> Setup(string sysName, Double_t sysMean, Double_t sysSigma,
 		       vector<string> mcmcParNames, 
-		       vector<string> branchNames, ConfigFile& config);
-  vector<string> ReadConfig(ConfigFile& config, vector<string> mcmcParNames, 
-			    vector<string> branchNames);
+		       vector<string> branchNames, ConfigFile& config,
+		       string sysTitle);
+  vector<string> ReadConfig(vector<string> mcmcParNames, 
+			    vector<string> branchNames, ConfigFile& config,
+			    string sysTitle);
   Bool_t AddPar(string sysName, Double_t sysMean, Double_t sysSigma,
 		vector<string> mcmcParNames);
   void SetParameters(Int_t nPars, Double_t *parameters);
@@ -68,6 +70,7 @@ class Sys {
 			   string targetName);
   void PrintState();
   void SetUseOriginalData(Bool_t toSet) {useOriginalData = toSet;};
+  Bool_t GetUseOriginalData() { return useOriginalData; };
   void SetFluxType(Int_t fluxTypeIn) { fluxType = fluxTypeIn;};
   Int_t GetFluxType() { return fluxType; };
   string GetName() { return name; };
@@ -76,11 +79,14 @@ class Sys {
   Bool_t SetBranchPar(string parName, vector<string> branchNames);
   Bool_t SetTarget(string parName, vector<string> branchNames);
   void SetUseMultiply(Bool_t use) { useMultiply = use; };
+  Bool_t GetUseMultiply() { return useMultiply; };
   Bool_t SetTFormula(string formula);
   Bool_t CheckIntegrity();
   void AddFluxAffected(Int_t fluxNumber);
   Bool_t CheckIfAffected(Int_t fluxNumber);
   Bool_t CheckIfAffected();
+  Bool_t AddMCMCParameterValue(string key);
+  Bool_t AddMCBranchValue(string key);
 };
 
 

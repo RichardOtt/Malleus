@@ -107,6 +107,13 @@ int main(int argc, char *argv[]) {
   validSys.push_back("AsymmFunc");
   validSys.push_back("AsymmUseMultiply");
   validSys.push_back("AsymmPar");
+  validSys.push_back("Function");
+  validSys.push_back("Target");
+  validSys.push_back("UseMultiply");
+  validSys.push_back("UseOriginalData");
+  validSys.push_back("AddFluxAffected");
+  validSys.push_back("MCMCParameterValue");
+  validSys.push_back("MCBranchValue");
 
   vector<string> validFlux;
   validFlux.push_back("Name");
@@ -155,6 +162,7 @@ int main(int argc, char *argv[]) {
   vector<int> values;
   int pdfPosition = -1;
   int binNum=0, MCBranchNum=0, asymmParNum = 0, lLFParNum=0;
+  int fluxAffectedNum=0, MCMCParameterValueNum=0, MCBranchValueNum=0;
   int makeBinsCounter = 1;
   int nBins = 0;
   double binMin = 0, binMax = 0;
@@ -237,10 +245,18 @@ int main(int argc, char *argv[]) {
 	values[position] = tempInt;
 	MCBranchNum = 0;
 	binNum = 0;
+	fluxAffectedNum = 0;
+	MCMCParameterValueNum = 0;
+	MCBranchValueNum = 0;
       }
       if(tokens[1] == "Axis") {
 	binNum = 0;
 	makeBinsCounter = 1;
+      }
+      if(tokens[1] == "Sys") {
+	fluxAffectedNum = 0;
+	MCMCParameterValueNum = 0;
+	MCBranchValueNum = 0;
       }
       asymmParNum = 0;
       lLFParNum=0;
@@ -371,6 +387,24 @@ int main(int argc, char *argv[]) {
 	outLine.fill('0');
 	outLine << lLFParNum;
 	lLFParNum++;
+      } else if(tokens[0] == "AddFluxAffected") {
+	outLine << "_";
+	outLine.width(2);
+	outLine.fill('0');
+	outLine << fluxAffectedNum;
+	fluxAffectedNum++; 
+      } else if(tokens[0] == "MCMCParameterValue") {
+	outLine << "_";
+	outLine.width(2);
+	outLine.fill('0');
+	outLine << MCMCParameterValueNum;
+	MCMCParameterValueNum++; 
+      } else if(tokens[0] == "MCBranchValue") {
+	outLine << "_";
+	outLine.width(2);
+	outLine.fill('0');
+	outLine << MCBranchValueNum;
+	MCBranchValueNum++; 
       }
 
       if(tokens[0] == "nBins" || tokens[0] == "LowerBound" || 

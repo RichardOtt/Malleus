@@ -18,7 +18,7 @@ class AddConst : public RealFunction {
     parameters = new Double_t[nPars];
   }
   
-  Double_t Eval(const Double_t x) {
+  Double_t Eval() {
     return (parameters[0]);
   }
 };
@@ -30,7 +30,7 @@ class MultiplyConst : public RealFunction {
     parameters = new Double_t[nPars];
   }
 
-  Double_t Eval(const Double_t x) {
+  Double_t Eval() {
     return (parameters[0]*parameters[1]);
   }
 };

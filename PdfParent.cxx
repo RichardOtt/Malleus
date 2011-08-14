@@ -347,7 +347,7 @@ Bool_t PdfParent::ExtractSys(ConfigFile& config,
       Sys *thisSys = new Sys();    
       //thisSys->SetUseOriginalData(useOriginalData); //Taken care of for SNO
       setupOutput = thisSys->Setup(sysName, sysMean, sysSigma, 
-				   parNamesMCMC, mcBranches, config);
+				   parNamesMCMC, mcBranches, config, pdfInfo);
       systematics.push_back(thisSys);
       if(setupOutput.size() == 0) {
 	Errors::AddError("Error: Setup for " +pdfInfo+ " failed");

@@ -9,6 +9,7 @@ LFLAGS = $(FLAGS)
 OBJ= $(SRC:.cxx=.o)
 DRAWOBJ= $(DRAWSRC:.cxx=.o)
 METAOBJ= $(METASRC:.cxx=.o)
+GENERATEMAPOBJ= $(GENERATEMAPSRC:.cxx=.o)
 
 SRC = main.cxx MCMC.cxx PdfParent.cxx Pdf1D.cxx Pdf3D.cxx Sys.cxx Flux.cxx Bkgd.cxx ConfigFile.cxx Errors.cxx Tools.cxx RealFunction.cxx
 #SRC = testBkgdCopy.cxx Errors.cxx Tools.cxx
@@ -16,11 +17,13 @@ SRC = main.cxx MCMC.cxx PdfParent.cxx Pdf1D.cxx Pdf3D.cxx Sys.cxx Flux.cxx Bkgd.
 DRAWSRC = drawResults.cxx MCMC.cxx PdfParent.cxx Pdf1D.cxx Pdf3D.cxx Sys.cxx\
 	 Flux.cxx Bkgd.cxx ConfigFile.cxx Errors.cxx Tools.cxx RealFunction.cxx
 METASRC = metaConfig.cxx Errors.cxx Tools.cxx
+GENERATEMAPSRC = generateMap.cxx Errors.cxx Tools.cxx
 
-EXE = ./rottSigEx.exe
+EXE = ./Malleus
 #EXE = ./test.exe
 DRAWEXE = ./drawResults.exe
 METAEXE = ./metaConfig.exe
+GENERATEMAPEXE = ./generateMap.exe
 
 INCS = -I/usr/include/ -I$(shell root-config --incdir)
 
@@ -37,6 +40,8 @@ drawing: $(DRAWEXE)
 
 metaconfig: $(METAEXE)
 
+generatemap: $(GENERATEMAPEXE)
+
 autocorr: getAutoCorr.exe
 
 autofit: autoFit.exe
@@ -46,6 +51,7 @@ getAutoCorr.exe: ./getAutoCorr.C
 
 autoFit.exe: ./autoFit.C
 	$(CPP) $(FLAGS) $(INCS) $(LIBS) autoFit.C -o autoFit.exe
+
 
 $(OBJ):  %.o: %.cxx Makefile
 	$(CPP) $(FLAGS) -c $(INCS) -o $@ $<
@@ -62,13 +68,19 @@ $(DRAWEXE): $(DRAWOBJ)
 metaConfig.o: metaConfig.cxx Makefile
 	$(CPP) $(FLAGS) -c $(INCS) -o $@ $<
 
+generateMap.o: generateMap.cxx Makefile
+	$(CPP) $(FLAGS) -c $(INCS) -o $@ $<
+
 $(METAEXE): $(METAOBJ)
 	$(CPP) $(LFLAGS) $(INCS) $(LIBS) -o $@ $(METAOBJ)
+
+$(GENERATEMAPEXE): $(GENERATEMAPOBJ)
+	$(CPP) $(LFLAGS) $(INCS) $(LIBS) -o $@ $(GENERATEMAPOBJ)
 
 depend : $(SRC)
 	makedepend -- $(INCS) -- $(SRC)
 
 clean: 
-	rm -f $(OBJ) $(DRAWOBJ) $(METAOBJ) $(EXE) $(DRAWEXE) $(METAEXE) autoFit.exe getAutoCorr.exe *~ *.bak
+	rm -f $(OBJ) $(DRAWOBJ) $(METAOBJ) $(GENERATEMAPOBJ) $(EXE) $(DRAWEXE) $(METAEXE) $(GENERATEMAPEXE) autoFit.exe getAutoCorr.exe *~ *.bak
 
 

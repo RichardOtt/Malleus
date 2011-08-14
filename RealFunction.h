@@ -31,9 +31,11 @@ class RealFunction {
  public:
   RealFunction();
   virtual ~RealFunction();
-  virtual Double_t Eval(Double_t x) = 0;
+  virtual Double_t Eval() = 0;
+  virtual Double_t Eval(Double_t x) { return Eval(); };
   void SetParameter(Int_t parNum, Double_t parValue);
   Double_t GetParameter(Int_t parNum);
+  Int_t GetNPars() { return nPars; };
 
 };
 
