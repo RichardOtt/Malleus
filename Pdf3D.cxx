@@ -565,6 +565,7 @@ void Pdf3D::Draw(string fileToWriteTo) {
   }
 
   //Compute chi^2, assume an error of 1 if counts = 0
+  //I don't think this is working
   Double_t dataValue=0, pdfValue=0, chisq=0, sigmaSq = 1;
   Int_t nDOF = 0;
   for(int x=1; x <= masterPdf->GetNbinsX(); x++) {
@@ -580,7 +581,7 @@ void Pdf3D::Draw(string fileToWriteTo) {
       }
     }
   }
-  cout << "Chi^2 = " << chisq << " for " << nDOF << " bins\n";
+  //cout << "Chi^2 = " << chisq << " for " << nDOF << " bins\n";
 
   delete dataPdf;
   delete [] xbins;

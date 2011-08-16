@@ -386,7 +386,7 @@ void Pdf1D::Draw(string fileToWriteTo) {
   TCanvas *mycanvas = new TCanvas(name.c_str(),name.c_str());
   mycanvas->cd();
 
-  TH1D *dataHisto, **fluxHisto;
+  TH1D *dataHisto, *mcHisto, **fluxHisto;
   fluxHisto = new TH1D*[fluxes.size()];
 
   for(int i = 0; i < fluxes.size(); i++)
@@ -395,7 +395,8 @@ void Pdf1D::Draw(string fileToWriteTo) {
   //Create data histo
   //Hopefully, this will copy axes and such from masterPdf to dataHisto
   dataHisto = new TH1D("dataHisto","dataHisto",4,0,1);
-  
+  mcHisto = new TH1D("mcHisto","mcHisto",4,0,1);
+
   Double_t *binsArray = new Double_t[xAxisBins.size()];
   for(int i=0; i < xAxisBins.size(); i++) {
     binsArray[i] = xAxisBins[i];
@@ -404,11 +405,21 @@ void Pdf1D::Draw(string fileToWriteTo) {
   dataHisto->GetXaxis()->SetTitle(axisNames[0].c_str());
   dataHisto->Rebuild();
 
+  mcHisto->GetXaxis()->Set(xAxisBins.size()-1, binsArray);
+  mcHisto->GetXaxis()->SetTitle(axisNames[0].c_str());
+  mcHisto->Rebuild(); 
+
   for(int i=0; i < nDataPoints; i++) {
     dataHisto->Fill(dataArray[i]);
   }
+
+  mcHisto->Reset();
+  for(int i=0; i < fluxes.size(); i++) {
+    mcHisto->Add(fluxHisto[i]);
+  }
   
   //Compute chi^2 and print it, assume an error of 1 if oounts = 0
+  //I don't think this is working properly
   Double_t dataValue=0, pdfValue=0, chisq=0, sigmaSq = 1;
   Int_t nDOF = 0;
   for(int x=1; x <= xAxisBins.size()-1; x++) {
@@ -420,7 +431,7 @@ void Pdf1D::Draw(string fileToWriteTo) {
 	chisq += (pdfValue-dataValue)*(pdfValue-dataValue)/sigmaSq;
 	nDOF++;
   }
-  cout << "Chi^2 = " << chisq << " for " << nDOF << " bins\n";
+  //cout << "Chi^2 = " << chisq << " for " << nDOF << " bins\n";
 
 
 
@@ -430,13 +441,8 @@ void Pdf1D::Draw(string fileToWriteTo) {
   dataHisto->SetLineColor(1);
   dataHisto->Draw("P0 E1 X0 *H");
   gPad->Update();
-  masterPdf->SetLineColor(2);
-  masterPdf->Draw("SAMES");
-//   TPaveStats *st = dynamic_cast<TPaveStats*>(dataHisto.FindObject("stats"));
-//   st->SetX1NDC(0.65);
-//   st->SetX2NDC(0.85);
-//   st->SetTextColor(kRed);
-//   dataHisto->Draw();
+  mcHisto->SetLineColor(2);
+  mcHisto->Draw("SAMES");
 
   //Now draw all of the individual fluxes/bkgds, ugh
   for(int i=0; i < fluxes.size(); i++) {
@@ -449,8 +455,8 @@ void Pdf1D::Draw(string fileToWriteTo) {
 
   TLegend *mylegend = new TLegend(xmin,ymin,xmax,ymax);
   mylegend->SetBorderSize(1);
-  mylegend->AddEntry(masterPdf,"MC");
   mylegend->AddEntry(dataHisto,"Data");
+  mylegend->AddEntry(mcHisto,"MC");
   for(int i=0; i < fluxes.size(); i++)
     mylegend->AddEntry(fluxHisto[i],(fluxes[i]->GetName()).c_str());
   mylegend->Draw();
