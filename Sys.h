@@ -10,6 +10,7 @@ Need to document how it works and how to use
 #include <vector>
 #include <list>
 #include <sstream>
+#include <iomanip>
 #include "TROOT.h"
 #include "TFormula.h"
 #include "Errors.h"
@@ -27,6 +28,7 @@ class Sys {
 
  private:
   string name;
+  string sysFunctionName; //If a sysFunc is used, store its name here
   vector<Int_t> parNums; //where pars are in MCMC list of pars
   vector<Double_t> pars; //values it is in charge of
   RealFunction *sysFunc;

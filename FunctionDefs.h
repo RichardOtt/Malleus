@@ -35,5 +35,16 @@ class MultiplyConst : public RealFunction {
   }
 };
 
+class Linear : public RealFunction {
+ public:
+  Linear() {
+    nPars = 3;
+    parameters = new Double_t[nPars];
+  }
+
+  Double_t Eval() {
+    return (parameters[0] + parameters[1]*parameters[2]);
+  }
+};
 
 #endif

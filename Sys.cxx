@@ -66,8 +66,10 @@ vector<string> Sys::ReadConfig(vector<string> mcmcParNames,
     string funcName = config.read<string>(sysTitle+"_Function");
     sysFunc = Decider::GenerateFunctionFromString(funcName);
     if(sysFunc == NULL) {
-      Errors::AddError("Error: Function "+funcName+" requested in Sys"+\
+      Errors::AddError("Error: Function "+funcName+" requested by Sys "+\
 		       name+" not in FunctionDefs.h");
+    } else {
+      sysFunctionName = funcName;
     }
   } else {
     Errors::AddError("Error: "+sysTitle+"_Function not defined");
@@ -107,7 +109,8 @@ vector<string> Sys::ReadConfig(vector<string> mcmcParNames,
     keyNum++;
     tempKey.clear();
     ostr.str(tempKey);
-    ostr << sysTitle << "_AddFluxAffected_" << keyNum;
+    ostr << sysTitle << "_AddFluxAffected_";
+    ostr << setw(2) << setfill('0') << keyNum;
     tempKey = ostr.str();
   }
   if(fluxesAffected.size() == 0) {
@@ -118,28 +121,32 @@ vector<string> Sys::ReadConfig(vector<string> mcmcParNames,
   keyNum = 0;
   tempKey.clear();
   ostr.str(tempKey);
-  ostr << sysTitle << "_MCMCParameterValue_" << keyNum;
+  ostr << sysTitle << "_MCMCParameterValue_";
+  ostr << setw(2) << setfill('0') << keyNum;
   tempKey = ostr.str();
   while(config.keyExists(tempKey)) {
     SetMCMCPar(config.read<string>(tempKey),mcmcParNames);
     keyNum++;
     tempKey.clear();
     ostr.str(tempKey);
-    ostr << sysTitle << "_MCMCParameterValue_" << keyNum;
+    ostr << sysTitle << "_MCMCParameterValue_";
+    ostr << setw(2) << setfill('0') << keyNum;
     tempKey = ostr.str();
   }
 
   keyNum = 0;
   tempKey.clear();
   ostr.str(tempKey);
-  ostr << sysTitle << "_MCBranchValue_" << keyNum;
+  ostr << sysTitle << "_MCBranchValue_";
+  ostr << setw(2) << setfill('0') << keyNum;
   tempKey = ostr.str();
   while(config.keyExists(tempKey)) {
     SetBranchPar(config.read<string>(tempKey),branchNames);
     keyNum++;
     tempKey.clear();
     ostr.str(tempKey);
-    ostr << sysTitle << "_MCBranchValue_" << keyNum;
+    ostr << sysTitle << "_MCBranchValue_";
+    ostr << setw(2) << setfill('0') << keyNum;
     tempKey = ostr.str();
   }
 
@@ -374,6 +381,8 @@ void Sys::PrintState() {
 
   cout << "Name: " << name << endl;
   //  sysFunc->Print();
+  if(sysFunc != NULL)
+    cout << "sysFunction used: " << sysFunctionName << endl;
   cout << "-----";
   cout << "parNums:\n";
   for(int i=0; i < parNums.size(); i++)
@@ -395,6 +404,7 @@ void Sys::PrintState() {
     cout << i << ": " << dataParNums[i] << endl;
   cout << "dataTarget: " << dataTarget << endl;
   cout << "useOriginalData: " << useOriginalData << endl;
+  cout << "useMultiply: " << useMultiply << endl;
   cout << "fluxesAffected:\n";
   for(list<Int_t>::iterator flux=fluxesAffected.begin(); 
       flux != fluxesAffected.end(); flux++) {
