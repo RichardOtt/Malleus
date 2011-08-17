@@ -26,15 +26,16 @@ class metaReader {
   bool isNumber(string toCheck);
 
  public:
+  metaReader();
   int ReadMetaFile(string metaFilename);
   int ReadMetaFile(ifstream& inFile);
   int PrintConfigToFile(string filename);
   int PrintConfigToFile(ofstream& outFile);
   string GetConfigLine();
-  //Need a "get key pair" type function
   int GetLineNumber() { return lineNumber; };
   bool SetLineNumber(int setLineNumberTo);
   int GetNumLines() { return configData.size(); };
+  bool ConvertToKeyPair(string line, string& key, string& value);
 
 };
 

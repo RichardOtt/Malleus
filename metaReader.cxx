@@ -1,5 +1,9 @@
 #include "metaReader.h"
 
+metaReader::metaReader() {
+  lineNumber = 0;
+}
+
 int metaReader::ReadMetaFile(string metaFilename) {
   ifstream inFile;
   inFile.open(metaFilename.c_str());
@@ -478,6 +482,22 @@ int metaReader::stringToTokens(string toBreak, vector<string>& toFill) {
   }
 
   return toFill.size();
+}
+
+bool metaReader::ConvertToKeyPair(string line, string& key, string& value) {
+  vector<string> tokens;
+  stringToTokens(line, tokens);
+  if(tokens.size() != 3 || tokens[1] != "=") {
+    Errors::AddError("Invalid config line "+line);
+    key.clear();
+    value.clear();
+    return false;
+  }
+  key = tokens[0];
+  value = tokens[2];
+
+  return true;
+
 }
 
 bool isNumber(string toCheck) {

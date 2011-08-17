@@ -4,6 +4,7 @@
 #include <fstream>
 #include "MCMC.h"
 #include "ConfigFile.h"
+#include "metaReader.h"
 #include "Errors.h"
 #include "TStopwatch.h"
 //#include "/usr/include/valgrind/callgrind.h"
@@ -41,6 +42,9 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  ConfigFile *config;
+  metaReader metaParsed;
+
   if(metafilename == "") {
     //No meta, use config
     ifstream configfiletest;
@@ -50,19 +54,51 @@ int main(int argc, char *argv[]) {
       return 2;
     }
     configfiletest.close();
+    config = new ConfigFile(filename);
   } else {
     //Meta supercedes config
-    
+    ifstream metafile;
+    metafile.open(metafilename.c_str());
+    if(metafile.fail()) {
+      cout << "Unable to open file " << metafilename << ", exiting\n";
+      return 2;
+    }
+    int results = metaParsed.ReadMetaFile(metafile);
+    if(results != 0 || Errors::GetNErrors() > 0) {
+      Errors::AddError("Fatal Error: Parsing meta file "+metafilename+\
+		       " failed");
+      Errors::Exit();
+    }
+    string configLine, key, value;
+    config = new ConfigFile();
+    cout << metaParsed.GetNumLines() << " lines in config\n";
+    metaParsed.PrintConfigToFile("wft.txt");
+    for(int i=0; i < metaParsed.GetNumLines(); i++) {
+      configLine = metaParsed.GetConfigLine();
+      metaParsed.ConvertToKeyPair(configLine, key, value);
+      config->add<string>(key, value);
+    }
+    if(Errors::GetNErrors() > 0)
+      Errors::Exit();
+
   }
+
+  // if(metafilename != "") {
+  //   string configLine, key, value;
+  //   metaParsed.SetLineNumber(0);
+  //   for(int i=0; i < metaParsed.GetNumLines(); i++) {
+  //     configLine = metaParsed.GetConfigLine();
+  //     metaParsed.ConvertToKeyPair(configLine, key, value);
+  //     cout << key << "=" << config->read<string>(key) << endl;
+  //   }
+
+  //   return 0;
+  // }
 
   MCMC mcmc;
 
-  ConfigFile config(filename);
-
   Bool_t succeeded = true;
-  succeeded = mcmc.ReadConfig(config);
-
-  //mcmc.PrintPdf(0);
+  succeeded = mcmc.ReadConfig(*config);
 
   cout << "Number of errors: " << Errors::GetNErrors() << endl;
   if(!succeeded)
@@ -74,9 +110,7 @@ int main(int argc, char *argv[]) {
 
   TStopwatch timer;
 
-  //CALLGRIND_START_INSTRUMENTATION
   timer.Start();
-  //mcmc.TakeStep();
   mcmc.Run();
   timer.Stop();
 

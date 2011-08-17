@@ -13,7 +13,7 @@ GENERATEMAPOBJ= $(GENERATEMAPSRC:.cxx=.o)
 
 SRC = main.cxx MCMC.cxx PdfParent.cxx Pdf1D.cxx Pdf3D.cxx Sys.cxx Flux.cxx\
 	 Bkgd.cxx ConfigFile.cxx Errors.cxx Tools.cxx RealFunction.cxx\
-	 Decider.cxx
+	 Decider.cxx metaReader.cxx
 #SRC = testBkgdCopy.cxx Errors.cxx Tools.cxx
 #SRC = testFill.cxx
 DRAWSRC = drawResults.cxx MCMC.cxx PdfParent.cxx Pdf1D.cxx Pdf3D.cxx Sys.cxx\
@@ -71,8 +71,8 @@ $(DRAWEXE): $(DRAWOBJ)
 metaConfig.o: metaConfig.cxx metaReader.cxx metaReader.h Makefile
 	$(CPP) $(FLAGS) -c $(INCS) -o $@ $<
 
-metaReader.o: metaReader.cxx metaReader.h Makefile
-	$(CPP) $(FLAGS) -c $(INCS) -o $@ $<
+#metaReader.o: metaReader.cxx metaReader.h Makefile
+#	$(CPP) $(FLAGS) -c $(INCS) -o $@ $<
 
 generateMap.o: generateMap.cxx Makefile
 	$(CPP) $(FLAGS) -c $(INCS) -o $@ $<
