@@ -1,3 +1,7 @@
 The goal of this project is to create a flexible, MCMC-based fitting
 utility to compare Monte Carlo simulations and data from a scientific
 experiment.  It is a continuation of my doctoral thesis project.
+
+It uses ConfigFile.h from someone on the internet (look this up), but
+also has a "meta-config" option, that can now be read directly by the
+main program.
