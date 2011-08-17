@@ -9,18 +9,24 @@ LFLAGS = $(FLAGS)
 OBJ= $(SRC:.cxx=.o)
 DRAWOBJ= $(DRAWSRC:.cxx=.o)
 METAOBJ= $(METASRC:.cxx=.o)
+GENERATEMAPOBJ= $(GENERATEMAPSRC:.cxx=.o)
 
-SRC = main.cxx MCMC.cxx PdfParent.cxx Pdf1D.cxx Pdf3D.cxx Sys.cxx Flux.cxx Bkgd.cxx ConfigFile.cxx Errors.cxx Tools.cxx RealFunction.cxx
+SRC = main.cxx MCMC.cxx PdfParent.cxx Pdf1D.cxx Pdf3D.cxx Sys.cxx Flux.cxx\
+	 Bkgd.cxx ConfigFile.cxx Errors.cxx Tools.cxx RealFunction.cxx\
+	 Decider.cxx metaReader.cxx
 #SRC = testBkgdCopy.cxx Errors.cxx Tools.cxx
 #SRC = testFill.cxx
 DRAWSRC = drawResults.cxx MCMC.cxx PdfParent.cxx Pdf1D.cxx Pdf3D.cxx Sys.cxx\
-	 Flux.cxx Bkgd.cxx ConfigFile.cxx Errors.cxx Tools.cxx RealFunction.cxx
-METASRC = metaConfig.cxx Errors.cxx Tools.cxx
+	 Flux.cxx Bkgd.cxx ConfigFile.cxx Errors.cxx\
+	 Tools.cxx RealFunction.cxx Decider.cxx
+METASRC = metaConfig.cxx metaReader.cxx Errors.cxx Tools.cxx
+GENERATEMAPSRC = generateMap.cxx Errors.cxx Tools.cxx
 
-EXE = ./rottSigEx.exe
+EXE = ./Malleus
 #EXE = ./test.exe
 DRAWEXE = ./drawResults.exe
 METAEXE = ./metaConfig.exe
+GENERATEMAPEXE = ./generateMap.exe
 
 INCS = -I/usr/include/ -I$(shell root-config --incdir)
 
@@ -37,6 +43,8 @@ drawing: $(DRAWEXE)
 
 metaconfig: $(METAEXE)
 
+generatemap: $(GENERATEMAPEXE)
+
 autocorr: getAutoCorr.exe
 
 autofit: autoFit.exe
@@ -47,10 +55,11 @@ getAutoCorr.exe: ./getAutoCorr.C
 autoFit.exe: ./autoFit.C
 	$(CPP) $(FLAGS) $(INCS) $(LIBS) autoFit.C -o autoFit.exe
 
+
 $(OBJ):  %.o: %.cxx Makefile
 	$(CPP) $(FLAGS) -c $(INCS) -o $@ $<
 
-$(EXE): $(OBJ)
+$(EXE): $(OBJ) $(GENERATEMAPEXE)
 	$(CPP) $(LFLAGS) $(INCS) $(LIBS) -o $@ $(OBJ)
 
 drawResults.o:  drawResults.cxx Makefile
@@ -59,16 +68,28 @@ drawResults.o:  drawResults.cxx Makefile
 $(DRAWEXE): $(DRAWOBJ)
 	$(CPP) $(LFLAGS) $(INCS) $(LIBS) -o $@ $(DRAWOBJ)
 
-metaConfig.o: metaConfig.cxx Makefile
+metaConfig.o: metaConfig.cxx metaReader.cxx metaReader.h Makefile
 	$(CPP) $(FLAGS) -c $(INCS) -o $@ $<
+
+#metaReader.o: metaReader.cxx metaReader.h Makefile
+#	$(CPP) $(FLAGS) -c $(INCS) -o $@ $<
+
+generateMap.o: generateMap.cxx Makefile
+	$(CPP) $(FLAGS) -c $(INCS) -o $@ $<
+
+Decider.cxx: $(GENERATEMAPEXE) FunctionDefs.h
+	generateMap.exe FunctionDefs.h > Decider.cxx
 
 $(METAEXE): $(METAOBJ)
 	$(CPP) $(LFLAGS) $(INCS) $(LIBS) -o $@ $(METAOBJ)
+
+$(GENERATEMAPEXE): $(GENERATEMAPOBJ)
+	$(CPP) $(LFLAGS) $(INCS) $(LIBS) -o $@ $(GENERATEMAPOBJ)
 
 depend : $(SRC)
 	makedepend -- $(INCS) -- $(SRC)
 
 clean: 
-	rm -f $(OBJ) $(DRAWOBJ) $(METAOBJ) $(EXE) $(DRAWEXE) $(METAEXE) autoFit.exe getAutoCorr.exe *~ *.bak
+	rm -f $(OBJ) $(DRAWOBJ) $(METAOBJ) $(GENERATEMAPOBJ) $(EXE) $(DRAWEXE) $(METAEXE) $(GENERATEMAPEXE) Decider.cxx autoFit.exe getAutoCorr.exe *~ *.bak
 
 

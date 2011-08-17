@@ -25,11 +25,13 @@ Sys::~Sys() {
 vector<string> Sys::Setup(string sysName, Double_t sysMean, Double_t sysSigma,
 			  vector<string> mcmcParNames, 
 			  vector<string> branchNames,
-			  ConfigFile& config) {
+			  ConfigFile& config, string sysTitle) {
   //Returns list of names of parameters "used" by this sys,
   //i.e. to avoid double counting, multi-parameter sys take all
   //out of the list
   //Returns empty vector (and Error) if problem
+  //sysTitle is the string identifying this Sys in the config file,
+  //will look something like Pdf_1_Sys_0
   
   name = sysName;
   mean.push_back(sysMean);
@@ -43,13 +45,7 @@ vector<string> Sys::Setup(string sysName, Double_t sysMean, Double_t sysSigma,
   pars.push_back(0); //So everything has the same size and is ready to go
 
   vector<string> usedPars;
-  //LookupName is for predefined functions, will later add
-  //a switch or a Setup overload that takes user-input constructions
-  usedPars = LookupName(name, mcmcParNames, branchNames);
-  if(usedPars.size() == 0) {
-    //Wasn't in list, read from ConfigFile
-    usedPars = ReadConfig(config, mcmcParNames, branchNames);
-  }
+  usedPars = ReadConfig(mcmcParNames, branchNames, config, sysTitle);
 
   if(usedPars.size() == 0)
     Errors::AddError("Error in sys "+name+": setup failed");
@@ -58,13 +54,103 @@ vector<string> Sys::Setup(string sysName, Double_t sysMean, Double_t sysSigma,
 
 }
 
-vector<string> Sys::ReadConfig(ConfigFile& config, 
-			       vector<string> mcmcParNames, 
-			       vector<string> branchNames) {
-  vector<string> usedPars;
+vector<string> Sys::ReadConfig(vector<string> mcmcParNames, 
+			       vector<string> branchNames, ConfigFile& config, 
+			       string sysTitle) {
+  vector<string> neededNames;
+  neededNames.push_back(name); //The Sys variable name
+  branchNames.push_back("InternalUseWeight");
+  Bool_t found = true;
+  
+  if(config.keyExists(sysTitle+"_Function")) {
+    string funcName = config.read<string>(sysTitle+"_Function");
+    sysFunc = Decider::GenerateFunctionFromString(funcName);
+    if(sysFunc == NULL) {
+      Errors::AddError("Error: Function "+funcName+" requested by Sys "+\
+		       name+" not in FunctionDefs.h");
+    } else {
+      sysFunctionName = funcName;
+    }
+  } else {
+    Errors::AddError("Error: "+sysTitle+"_Function not defined");
+    found = false;
+  }
 
+  if(config.keyExists(sysTitle+"_Target")) {
+    string targetName = config.read<string>(sysTitle+"_Target");
+    dataTarget = SearchStringVector(branchNames, targetName);
+    if(dataTarget == -1) {
+      Errors::AddError("Error: "+sysTitle+"_Target not valid");
+      found = false;
+    }
+  } else {
+    Errors::AddError("Error: "+sysTitle+"_Target not defined");
+    found = false;
+  }
 
-  return usedPars;
+  if(!config.keyExists(sysTitle+"_UseMultiply"))
+    cout << sysTitle << "_UseMultiply not defined, defaulting to false\n";
+  useMultiply = config.read<bool>(sysTitle+"_UseMultiply", false);
+
+  if(!config.keyExists(sysTitle+"_UseOriginalData"))
+    cout << sysTitle << "_UseOriginalData not defined, defaulting to true\n";
+  useOriginalData = config.read<bool>(sysTitle+"_UseOriginalData",true);
+
+  int keyNum = 0;
+  ostringstream ostr;
+  string tempKey;
+  ostr << sysTitle << "_AddFluxAffected_";
+  ostr.width(2);
+  ostr.fill('0');
+  ostr << keyNum;
+  tempKey = ostr.str();
+  while(config.keyExists(tempKey)) {
+    AddFluxAffected(config.read<int>(tempKey));
+    keyNum++;
+    tempKey.clear();
+    ostr.str(tempKey);
+    ostr << sysTitle << "_AddFluxAffected_";
+    ostr << setw(2) << setfill('0') << keyNum;
+    tempKey = ostr.str();
+  }
+  if(fluxesAffected.size() == 0) {
+    cout << "No calls to AddFluxAffected for Sys " << name;
+    cout << ", defaulting to affecting all fluxes\n";
+  }
+
+  keyNum = 0;
+  tempKey.clear();
+  ostr.str(tempKey);
+  ostr << sysTitle << "_MCMCParameterValue_";
+  ostr << setw(2) << setfill('0') << keyNum;
+  tempKey = ostr.str();
+  while(config.keyExists(tempKey)) {
+    SetMCMCPar(config.read<string>(tempKey),mcmcParNames);
+    keyNum++;
+    tempKey.clear();
+    ostr.str(tempKey);
+    ostr << sysTitle << "_MCMCParameterValue_";
+    ostr << setw(2) << setfill('0') << keyNum;
+    tempKey = ostr.str();
+  }
+
+  keyNum = 0;
+  tempKey.clear();
+  ostr.str(tempKey);
+  ostr << sysTitle << "_MCBranchValue_";
+  ostr << setw(2) << setfill('0') << keyNum;
+  tempKey = ostr.str();
+  while(config.keyExists(tempKey)) {
+    SetBranchPar(config.read<string>(tempKey),branchNames);
+    keyNum++;
+    tempKey.clear();
+    ostr.str(tempKey);
+    ostr << sysTitle << "_MCBranchValue_";
+    ostr << setw(2) << setfill('0') << keyNum;
+    tempKey = ostr.str();
+  }
+
+  return neededNames;
 
 }
 
@@ -82,7 +168,7 @@ Bool_t Sys::AddPar(string sysName, Double_t sysMean, Double_t sysSigma,
 }
 
 void Sys::SetParameters(Int_t nPars, Double_t *parameters) {
-  //Takes pars from MCMC function high above and extracts out what it needs
+  //Takes pars from MCMC class high above and extracts out what it needs
   //This updates both pars and mcmcPars
 
   //nPars is reduntant, included for completeness.  Maybe I should add
@@ -114,9 +200,9 @@ void Sys::Apply(const vector<Double_t>& data, vector<Double_t>& difference) {
     }
   }
   if(!useMultiply) {
-    difference[dataTarget] += sysFunc->Eval(fluxType);
+    difference[dataTarget] += sysFunc->Eval();
   } else {
-    difference[dataTarget] *= sysFunc->Eval(fluxType);
+    difference[dataTarget] *= sysFunc->Eval();
   }
 
 }
@@ -295,6 +381,8 @@ void Sys::PrintState() {
 
   cout << "Name: " << name << endl;
   //  sysFunc->Print();
+  if(sysFunc != NULL)
+    cout << "sysFunction used: " << sysFunctionName << endl;
   cout << "-----";
   cout << "parNums:\n";
   for(int i=0; i < parNums.size(); i++)
@@ -316,6 +404,7 @@ void Sys::PrintState() {
     cout << i << ": " << dataParNums[i] << endl;
   cout << "dataTarget: " << dataTarget << endl;
   cout << "useOriginalData: " << useOriginalData << endl;
+  cout << "useMultiply: " << useMultiply << endl;
   cout << "fluxesAffected:\n";
   for(list<Int_t>::iterator flux=fluxesAffected.begin(); 
       flux != fluxesAffected.end(); flux++) {
@@ -373,25 +462,40 @@ Bool_t Sys::CheckIntegrity() {
     succeeded = false;
   }
 
-  if(sysFormula != NULL) {
-    cout << sysFormula->GetTitle() << endl;
-//     if(sysFormula->Compile() != 0)
-//       succeeded = false;
-  }
+//   if(sysFormula != NULL) {
+//     cout << sysFormula->GetTitle() << endl;
+// //     if(sysFormula->Compile() != 0)
+// //       succeeded = false;
+//   }
 
+  //Check ones with TFormulas
   if(sysFormula != NULL) 
     if(mcmcParNums.size() + dataParNums.size() != sysFormula->GetNpar()) {
       Int_t functionPars = mcmcParNums.size() + dataParNums.size();
       Int_t formulaPars = sysFormula->GetNpar();
       ostringstream errorText;
-      errorText << "Error: Sys class has " << functionPars << " pars, ";
-      errorText << " formula expects " << formulaPars;
+      errorText << "Error: Sys " << name << " has "; 
+      errorText << functionPars << " pars, ";
+      errorText << " formula " << sysFormula->GetTitle() << " expects ";
+      errorText << formulaPars;
       Errors::AddError(errorText.str());
       succeeded = false;
     }
-  //Eventually need to add a check for the RealFunctions, which will require
-  //all real functions to know how many parameters they need
-  
+
+  //Check ones with RealFunctions
+  if(sysFunc != NULL)
+    if(mcmcParNums.size() + dataParNums.size() != sysFunc->GetNPars()) {
+      Int_t functionPars = mcmcParNums.size() + dataParNums.size();
+      Int_t formulaPars = sysFormula->GetNpar();
+      ostringstream errorText;
+      errorText << "Error: Sys " << name << " has ";
+      errorText << functionPars << " pars, ";
+      //      errorText << " RealFunction " << functionName << " expects ";
+      errorText << formulaPars;
+      Errors::AddError(errorText.str());
+      succeeded = false;
+    }
+
   return succeeded;
 }
 
@@ -417,3 +521,4 @@ Bool_t Sys::CheckIfAffected(Int_t fluxNumber) {
 Bool_t Sys::CheckIfAffected() {
   return CheckIfAffected(fluxType);
 }
+
