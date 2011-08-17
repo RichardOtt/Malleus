@@ -19,7 +19,7 @@ SRC = main.cxx MCMC.cxx PdfParent.cxx Pdf1D.cxx Pdf3D.cxx Sys.cxx Flux.cxx\
 DRAWSRC = drawResults.cxx MCMC.cxx PdfParent.cxx Pdf1D.cxx Pdf3D.cxx Sys.cxx\
 	 Flux.cxx Bkgd.cxx ConfigFile.cxx Errors.cxx\
 	 Tools.cxx RealFunction.cxx Decider.cxx
-METASRC = metaConfig.cxx Errors.cxx Tools.cxx
+METASRC = metaConfig.cxx metaReader.cxx Errors.cxx Tools.cxx
 GENERATEMAPSRC = generateMap.cxx Errors.cxx Tools.cxx
 
 EXE = ./Malleus
@@ -68,7 +68,10 @@ drawResults.o:  drawResults.cxx Makefile
 $(DRAWEXE): $(DRAWOBJ)
 	$(CPP) $(LFLAGS) $(INCS) $(LIBS) -o $@ $(DRAWOBJ)
 
-metaConfig.o: metaConfig.cxx Makefile
+metaConfig.o: metaConfig.cxx metaReader.cxx metaReader.h Makefile
+	$(CPP) $(FLAGS) -c $(INCS) -o $@ $<
+
+metaReader.o: metaReader.cxx metaReader.h Makefile
 	$(CPP) $(FLAGS) -c $(INCS) -o $@ $<
 
 generateMap.o: generateMap.cxx Makefile
