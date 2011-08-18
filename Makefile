@@ -78,7 +78,7 @@ generateMap.o: generateMap.cxx Makefile
 	$(CPP) $(FLAGS) -c $(INCS) -o $@ $<
 
 Decider.cxx: $(GENERATEMAPEXE) FunctionDefs.h
-	generateMap.exe FunctionDefs.h > Decider.cxx
+	./generateMap.exe FunctionDefs.h > Decider.cxx
 
 $(METAEXE): $(METAOBJ)
 	$(CPP) $(LFLAGS) $(INCS) $(LIBS) -o $@ $(METAOBJ)
