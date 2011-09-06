@@ -6,27 +6,32 @@ CPP = g++
 FLAGS  = -O3 -Wall -Wno-sign-compare
 LFLAGS = $(FLAGS)
 
-OBJ= $(SRC:.cxx=.o)
-DRAWOBJ= $(DRAWSRC:.cxx=.o)
-METAOBJ= $(METASRC:.cxx=.o)
-GENERATEMAPOBJ= $(GENERATEMAPSRC:.cxx=.o)
+OBJ= $(SRC:src/%.cxx=obj/%.o)
+DRAWOBJ= $(DRAWSRC:src/%.cxx=obj/%.o)
+METAOBJ= $(METASRC:src/%.cxx=obj/%.o)
+GENERATEMAPOBJ= $(GENERATEMAPSRC:src/%.cxx=obj/%.o)
 
 SRC = main.cxx MCMC.cxx PdfParent.cxx Pdf1D.cxx Pdf3D.cxx Sys.cxx Flux.cxx\
 	 Bkgd.cxx ConfigFile.cxx Errors.cxx Tools.cxx RealFunction.cxx\
 	 Decider.cxx metaReader.cxx
-#SRC = testBkgdCopy.cxx Errors.cxx Tools.cxx
-#SRC = testFill.cxx
 DRAWSRC = drawResults.cxx MCMC.cxx PdfParent.cxx Pdf1D.cxx Pdf3D.cxx Sys.cxx\
 	 Flux.cxx Bkgd.cxx ConfigFile.cxx Errors.cxx\
 	 Tools.cxx RealFunction.cxx Decider.cxx
 METASRC = metaConfig.cxx metaReader.cxx Errors.cxx Tools.cxx
 GENERATEMAPSRC = generateMap.cxx Errors.cxx Tools.cxx
 
-EXE = ./Malleus
+SRC := $(addprefix src/,$(SRC))
+DRAWSRC := $(addprefix src/,$(DRAWSRC))
+METASRC := $(addprefix src/,$(METASRC))
+GENERATEMAPSRC := $(addprefix src/,$(GENERATEMAPSRC))
+
+EXE = bin/Malleus
 #EXE = ./test.exe
-DRAWEXE = ./drawResults.exe
-METAEXE = ./metaConfig.exe
-GENERATEMAPEXE = ./generateMap.exe
+DRAWEXE = bin/drawResults.exe
+METAEXE = bin/metaConfig.exe
+GENERATEMAPEXE = bin/generateMap.exe
+AUTOCORREXE = bin/getAutoCorr.exe
+AUTOFITEXE = bin/autoFit.exe
 
 INCS = -I/usr/include/ -I$(shell root-config --incdir)
 
@@ -35,7 +40,7 @@ LIBS =  $(shell root-config --libs)
 #	-L/usr/lib -lgsl -lgslcblas
 
 
-all: $(EXE) $(DRAWEXE) $(METAEXE) autoFit.exe getAutoCorr.exe
+all: $(EXE) $(DRAWEXE) $(METAEXE) $(AUTOCORREXE) $(AUTOFITEXE)
 
 main: $(EXE)
 
@@ -45,40 +50,41 @@ metaconfig: $(METAEXE)
 
 generatemap: $(GENERATEMAPEXE)
 
-autocorr: getAutoCorr.exe
+autocorr: $(AUTOCORREXE)
 
-autofit: autoFit.exe
+autofit: $(AUTOFITEXE)
 
-getAutoCorr.exe: ./getAutoCorr.C
-	$(CPP) $(FLAGS) $(INCS) $(LIBS) getAutoCorr.C -o getAutoCorr.exe
+$(AUTOCORREXE): src/getAutoCorr.C
+	$(CPP) $(FLAGS) $(INCS) $(LIBS) src/getAutoCorr.C -o $(AUTOCORREXE)
 
-autoFit.exe: ./autoFit.C
-	$(CPP) $(FLAGS) $(INCS) $(LIBS) autoFit.C -o autoFit.exe
+$(AUTOFITEXE): src/autoFit.C
+	$(CPP) $(FLAGS) $(INCS) $(LIBS) src/autoFit.C -o $(AUTOFITEXE)
 
 
-$(OBJ):  %.o: %.cxx Makefile
+$(OBJ):  obj/%.o: src/%.cxx Makefile
 	$(CPP) $(FLAGS) -c $(INCS) -o $@ $<
 
 $(EXE): $(OBJ) $(GENERATEMAPEXE)
 	$(CPP) $(LFLAGS) $(INCS) $(LIBS) -o $@ $(OBJ)
 
-drawResults.o:  drawResults.cxx Makefile
+obj/drawResults.o:  src/drawResults.cxx Makefile
 	$(CPP) $(FLAGS) -c $(INCS) -o $@ $<
 
 $(DRAWEXE): $(DRAWOBJ)
 	$(CPP) $(LFLAGS) $(INCS) $(LIBS) -o $@ $(DRAWOBJ)
 
-metaConfig.o: metaConfig.cxx metaReader.cxx metaReader.h Makefile
+obj/metaConfig.o: src/metaConfig.cxx src/metaReader.cxx src/metaReader.h\
+                  Makefile
 	$(CPP) $(FLAGS) -c $(INCS) -o $@ $<
 
 #metaReader.o: metaReader.cxx metaReader.h Makefile
 #	$(CPP) $(FLAGS) -c $(INCS) -o $@ $<
 
-generateMap.o: generateMap.cxx Makefile
+obj/generateMap.o: src/generateMap.cxx Makefile
 	$(CPP) $(FLAGS) -c $(INCS) -o $@ $<
 
-Decider.cxx: $(GENERATEMAPEXE) FunctionDefs.h
-	./generateMap.exe FunctionDefs.h > Decider.cxx
+src/Decider.cxx: $(GENERATEMAPEXE) src/FunctionDefs.h
+	bin/generateMap.exe src/FunctionDefs.h > src/Decider.cxx
 
 $(METAEXE): $(METAOBJ)
 	$(CPP) $(LFLAGS) $(INCS) $(LIBS) -o $@ $(METAOBJ)
@@ -90,6 +96,8 @@ depend : $(SRC)
 	makedepend -- $(INCS) -- $(SRC)
 
 clean: 
-	rm -f $(OBJ) $(DRAWOBJ) $(METAOBJ) $(GENERATEMAPOBJ) $(EXE) $(DRAWEXE) $(METAEXE) $(GENERATEMAPEXE) Decider.cxx autoFit.exe getAutoCorr.exe *~ *.bak
+	rm -f $(OBJ) $(DRAWOBJ) $(METAOBJ) $(GENERATEMAPOBJ) $(EXE) $(DRAWEXE)\
+ $(METAEXE) $(GENERATEMAPEXE) $(AUTOFITEXE) $(AUTOCORREXE) src/Decider.cxx\
+ *~ *.bak
 
 
