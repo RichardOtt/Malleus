@@ -22,6 +22,14 @@ int main(int argc, char *argv[]) {
   if(argc != 4 && argc != 6) {
     cout << "usage: getAutoCorr.exe inputFile skipSteps outputFile maxH skipH";
     cout << endl << "maxH and skipH are optional" << endl;
+    cout << "inputFile is a .root file produced by Malleus";
+    cout << " containing Tmcmc\n";
+    cout << "skipSteps is number of initial steps (burn-in) to discard\n";
+    cout << "outputFile is file to write graphs to, must be .ps or .pdf\n";
+    cout << "maxH sets the maximum h value for the autoCorrelation,\n";
+    cout << "     default is (number of points)/2\n";
+    cout << "skipH causes the autoCorrelation to only be evaluated for\n";
+    cout << "     multiples of skipH, up to maxH\n";
     return 1;
   }
 

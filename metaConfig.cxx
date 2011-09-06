@@ -13,6 +13,8 @@ int main(int argc, char *argv[]) {
   
   if(argc != 3) {
     cout << "usage:   metaConfig.exe inputFile outputFile\n";
+    cout << "inputFile is meta config file\n";
+    cout << "outputFile is config file\n";
     return 1;
   }
 

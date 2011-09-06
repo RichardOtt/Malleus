@@ -483,7 +483,7 @@ Bool_t Sys::CheckIntegrity() {
     }
 
   //Check ones with RealFunctions
-  if(sysFunc != NULL)
+  if(sysFunc != NULL) {
     if(mcmcParNums.size() + dataParNums.size() != sysFunc->GetNPars()) {
       Int_t functionPars = mcmcParNums.size() + dataParNums.size();
       Int_t formulaPars = sysFormula->GetNpar();
@@ -491,10 +491,13 @@ Bool_t Sys::CheckIntegrity() {
       errorText << "Error: Sys " << name << " has ";
       errorText << functionPars << " pars, ";
       //      errorText << " RealFunction " << functionName << " expects ";
-      errorText << formulaPars;
+      errorText << formulaPars << "expected";
       Errors::AddError(errorText.str());
       succeeded = false;
     }
+    //Check target and parameters are reasonable
+    
+  }
 
   return succeeded;
 }

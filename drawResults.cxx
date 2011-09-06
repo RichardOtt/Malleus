@@ -3,6 +3,12 @@
 #include "MCMC.h"
 #include "Errors.h"
 
+void print_help() {
+    cout << "usage:  drawResults configfile fitResultsFile outputFile\n";
+    cout << "configfile is a config, not a meta config\n";
+    cout << "fitResultsFile is the .fitResult file produced by autoFit.exe\n";
+    cout << "outputFile is a .ps or .pdf file to write\n";
+}
 
 int main(int argc, char *argv[]) {
 
@@ -11,20 +17,20 @@ int main(int argc, char *argv[]) {
   string outputFile;
 
   if(argc < 2) {
-    cout << "usage:  drawResults configfile fitResultsFile outputFile\n";
+    print_help();
     return 2;
   }
 
   for(int i=1; i < argc; i++) {
     string tempString = argv[i];
     if(tempString == "-h" || tempString == "--help") {
-      cout << "usage:  drawResults configfile fitResultsFile outputFile\n";
+      print_help();
       return 2;
     }
   }
 
   if(argc != 4) {
-    cout << "usage:  drawResults configfile fitResultsFile outputFile\n";
+    print_help();
     return 2;
   }
 
