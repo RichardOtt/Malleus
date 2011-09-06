@@ -1,0 +1,630 @@
+
+\chapter{Signal Extraction}
+\label{SigEx}
+
+Thus far, we have looked at all the pieces that make up the analysis
+presented in this thesis, the three phase Day/Night signal extraction.
+Now we put all of these pieces together to actually perform the
+analysis.  We look at the underlying methodology, the computer code
+used to implement it, and the tests done to ensure it was working as
+expected.
+
+We begin by summarizing the method: The analysis starts with a set of
+Monte Carlos of the SNO detector, simulating the principle fluxes (CC,
+ES, ES$_{\mu\tau}$ and NC) and backgrounds.  These are summed
+together, varying the relative amounts of each and applying a set of
+distortions representing possible inaccuracies and uncertainties in
+the simulation (the systematics).  The parameters describing the
+relative amounts and distortions are collectively refered to as
+$\vec{\alpha}$.  This summed, distorted MC is compared to the data,
+giving a log likelihood.  We then vary this $\vec{\alpha}$ via a
+Markov Chain Monte Carlo method (the Metropolis algorithm) to extract
+the probability distributions for values of our parameters given our
+data - this is the posterior distribution
+$p(\vec{\alpha}|\{\vec{x}\})$ described in \mbox{Chapter \ref{MCMC}}.
+
+To understand how this process is carried out, we first explain how
+$N\,p(\vec{x}|\vec{\alpha})$ is calculated.  We then explain how the
+results of the two external analyses LETA and PSA are included.  We
+then explain the implementation itself and how our computer code is
+structured.  Finally, we show the results of our tests to confirm the
+code is working as expected.
+
+
+\section{PDF}
+\label{PDFGeneration}
+Throughout our discussion of the log likelihood, we left $N \,
+p(\vec{x}|\vec{\alpha})$ abstract.  To actually build a functional
+MCMC, we must specify how it is evaluated.  There are many ways to do
+this in principle, though the complexity of any modern experiment
+leaves us with basically one choice: Monte Carlo.  A detailed MC of
+our experiment gives us a set of MC simulated events $\{\vec{y}\}$.
+Each of these events will consist of a set of values containing those
+in the data, $\{\vec{x}\}$, plus additional information from the MC
+not available in the data, such as the ``true'' values that went in to
+the generation of the event (as opposed to the measured values).  As
+described in \mbox{Chapter \ref{SNOAnalysis}}, the analysis only
+uses three data variables, $E$, $\rho^3$ and $\cos(\theta_{sun})$,
+while the Monte Carlo uses $E$, $E_{true}$, $x$, $y$, $z$, $x_{true}$,
+$y_{true}$, $z_{true}$, $\cos(\theta_{sun})$, and
+$E_{\nu}$.\footnote{$\rho^3$ is then computed from $x$, $y$ and $z$}
+
+To turn this set of points in to a PDF, we histogram $\{\vec{y}\}$ and
+interpret the value in each bin as $p(\vec{x}|\vec{\alpha})$ for any
+point in that bin.  This potentially introduces a systematic
+uncertainty - we are effectively integrating the ``true''
+$p(\vec{x}|\vec{\alpha})$ in each bin and only looking at the average.
+If the underlying $p(\vec{x}|\vec{\alpha})$ varies quickly, we may
+wash out features that we are interested in and lose discriminating
+power.  This can be tested by looking at the one dimensional
+projections of the MC in each of the principle variables ($E$,
+$\rho^3$ and $\cos(\theta_{sun})$), reducing the bin size
+significantly and looking for any regions of rapid change.  The one
+dimension projections are used only to increase statistics and allow
+finer bins.  This was done for the NCD phase analysis presented in
+\cite{NCDPRL}, though not discussed there.  Additionally, we repeated
+this simple test and saw no such regions that would be averaged out by
+the binning process.
+
+We define a set of bins in each of the data values (a 3-D histogram
+here) and fill with the MC events.  As explained in \mbox{Section
+\ref{SeparationOfFluxes}}, we restrict to a particular range in each
+value, so we only create histogram bins over that range.  Many of our
+MC events are outside these ranges and thus do not appear in the
+histogram at this stage, but we retain them as the systematics may
+alter their values enough to move them inside our cuts.  In this
+analysis, we used the following bins: 10 equal bins in $\rho^3$ from
+$0$ to $0.77025$, $25$ equal bins in $\cos(\theta_{sun})$ from $-1$ to
+$1$ and a set of bins in $E$ consisting of $0.5\ \mathrm{MeV}$ spacing
+between $6$ and $13$ Mev, a larger bin from $13$ to $20$ MeV (13 total
+bins).  Since the Pdf is three dimensional, this it has $10\cdot 25
+\cdot 13 = 3250$ bins.  These are the same bins used in the NCD phase
+analysis \cite{NCDPRL}.
+
+%\begin{table}
+%\centering
+%\begin{tabular}{ c c c }
+%\begin{tabular}{ | l | c | }
+%  \hline
+%  $\rho^3$  & 0\\
+%            & 0.077025\\
+%            & 0.15405\\
+%            & 0.231075\\
+%            & 0.30801\\
+%            & 0.385125\\
+%            & 0.46215\\
+%            & 0.539175\\
+%            & 0.6162\\
+%            & 0.693225\\
+%            & 0.77025\\
+%  \hline
+%\end{tabular} & 
+%\begin{tabular}{ | l | c | }
+%  \hline
+%  $\cos(\theta_{sun})$ & -1\\
+%                       & -0.92\\
+%                       & -0.84\\
+%                       & -0.76\\
+%                       & -0.68\\
+%                       & -0.6\\
+%                       & -0.52\\
+%                       & -0.44\\
+%                       & -0.36\\
+%                       & -0.28\\
+%                       & -0.2\\
+%                       & -0.12\\
+%                       & -0.04\\
+%                       & 0.04\\
+%                       & 0.12\\
+%                       & 0.2\\
+%                       & 0.28\\
+%                       & 0.36\\
+%                       & 0.44\\
+%                       & 0.52\\
+%                       & 0.6\\
+%                       & 0.68\\
+%                       & 0.76\\
+%                       & 0.84\\
+%                       & 0.92\\
+%                       & 1\\
+%  \hline
+%\end{tabular} & 
+%\begin{tabular}{ | l | c | }
+%  \hline
+%  $E$ & 6\\
+%      & 6.5\\
+%      & 7\\
+%      & 7.5\\
+%      & 8\\
+%      & 8.5\\
+%      & 9\\
+%      & 9.5\\
+%      & 10\\
+%      & 10.5\\
+%      & 11\\
+%      & 11.5\\
+%      & 12\\
+%      & 20\\
+%  \hline
+%\end{tabular}
+%\end{tabular}
+%\caption[Table of bins]{Boundaries of bins used in the signal
+%extraction.  This is a three dimensional histogram, so these spacing
+%represent $10\cdot 25 \cdot 13 = 3250$ bins.  Note that this is $10$
+%equal bins in $\rho^3$ from $0$ to $0.77025$, $25$ equal bins in
+%$\cos(\theta_{sun})$ from $-1$ to $1$ and a set of bins in $E$
+%consisting of $0.5\ \mathrm{MeV}$ spacing plus a larger bin at the
+%highest energies.
+%\label{BinsTable}}
+%\end{table}
+
+Several different physical processes, our primary fluxes, contribute
+to our signal.  Each of these has a separate set of MC events.  We
+also expect to have several backgrounds producing events, again each
+with a separate set of MC events.  These backgrounds are treated
+identically to the fluxes.  We take each set of MC events separately,
+apply the relevant subset of the systematics to each event in that
+set, and fill the resulting ``new'' event values in to the histogram.
+Each event is filled with a weight determined both by the weight
+systematics and a conversion factor from the number of MC events to
+the expected number of data events.  In this manner, we are able to
+vary the relative proportions of each flux in the resulting histogram,
+as well as the total number of events $N$.  This makes $N$ dependent
+on both the intensities of each flux as well as the systematics.
+
+This leads us to our construction method for $N \,
+p(\vec{x}|\vec{\alpha})$.  We have $m$ sets of MC, one for each flux
+(or background), and a set of parameters $\vec{\alpha}$.  This
+$\vec{\alpha}$ contains values for our systematic parameters and
+parameters defining the size of each flux.  The latter took several
+related forms over the course of testing the code, but for sake of
+exposition we'll use the final form: each flux has a parameter with
+nominal value $1$ that represents the ``scale'', i.e. how much it
+deviates from expectation (with expectation normalized to $1$).  This
+necessitates a fixed conversion factor from MC events to data events
+representing how many ``experiments worth'' of MC are in the set,
+called {\tt TimesExpected}, defined as the number of events expected
+for this flux (in the data) divided by the number of MC events in the
+analysis window.  The systematics can change the number of events, but
+this ratio assumes systematics at their nominal values.  Since not all
+systematics are applied to each flux, each flux is assigned a {\tt
+FluxNumber} and each systematic knows which {\tt FluxNumber}'s it acts
+on.  The process is then to go through the fluxes one at a time,
+taking each individual event, computing the value changes for the
+relevant systematics and filling the histogram with the resulting
+event values, with weight given by
+\begin{equation}
+\label{FinalWeight}
+W_{final} = \frac{\mathrm{Scale}}{\mathrm{TimesExpected}} \prod_k W_{sys,k}
+\end{equation}
+where the survival probability from \mbox{Section \ref{Pee}} is
+treated as a systematic.  The number of MC events, expected number of
+data events and {\tt TimesExpected} for each flux and background are
+shown in \mbox{Table \ref{FluxAmounts}}.
+
+\begin{table}
+\centering
+\begin{tabular}{ | l | c | c | c | }
+\hline
+Flux & MC events & Data events & {\tt TimesExpected}\\
+\hline
+CC & 6198.589 & 5628150 & 907.9728\\
+NC & 266.051 & 244751 & 919.9367\\
+ES & 532.611 & 970822 & 1822.762\\
+ES$_{\mu\tau}$ & 82.7599 & 1508525 & 18227.725\\
+\hline
+ex & 20.60133 & 119417 & 5796.528\\
+d2opd & 8.2987 & 244751 & 29492.692\\
+ncdpd & 5.7265 & 70175 & 12254.431\\
+k2pd & 9.36112 & 112710 & 12040.226\\
+k5pd & 11.557 & 118464 & 10250.411\\
+atmos & 24.66224 & 244751 & 9924.119\\
+\hline
+\end{tabular}
+\caption[Number of MC and expected data events]{The total number of MC
+events in the analysis window, expected number of data events and {\tt
+TimesExpected} for each flux and background.  {\tt TimesExpected} can
+be computed by (expected data events)/(MC events).  Note that the
+expected data events are for the PMTs, the amounts in \mbox{Table
+\ref{BackgroundTable}} are for the NCDs.
+\label{FluxAmounts}}
+\end{table}
+
+The resulting histogram is \emph{almost} $N\, p(\vec{x}|\vec{\alpha})$.
+If the bin volumes in our histogram are all equal, then it is and
+we stop.  However, if they are unequal, we must compensate for
+that.  The problem arises in that we are interpreting this as an
+(unnormalized) PDF.  A simple example to illustrate is the case of a
+constant probability over some region, say $[0,1]$.  A sequence of
+$1000$ random draws from this distribution (as our MC) will be
+uniformly distributed across $[0,1]$, as we expect.  Suppose our histogram
+has two bins.  If they are $[0,0.5)$ and $[0.5,1]$, then there is no
+problem - each has (on average) $500$ events.  If the two bins are
+$[0,0.3)$ and $[0.3,1]$, however, this doesn't work - one has $300$
+events and the other $700$.  If we then look at these as our $N p(x)$,
+we see that this will incorrectly over-weight the larger bin.  To
+correct for this, we divide each bin by its width.  This results
+in each bin having a ``size'' (it is no longer simply counts) of
+$1000.0$, again equal.  This naturally raises the question of whether
+we should then re-scale the histogram to get back to some semblance of
+counts.  Interestingly, this actually does that for us - we have $\int
+(N p(x)) \: \mathrm{d}x = N$, in this case $1000$.  Of course, the
+next question is: does not dividing by the bin width in the uniform
+case cause a problem?  Since we are using the log likelihood, the
+answer is no.  If we have a constant scaling factor $\gamma$ applied
+to all bins, this is equivalent to having $N \gamma
+p(\vec{x}|\vec{\alpha})$.  Ignoring constraint terms (which are
+unaffected), using this in our ELL gives
+\begin{equation}
+\mathrm{ELL}(\vec{\alpha})_{\gamma} = 
+\sum_i^n \log(N \gamma p(\vec{x}_i|\vec{\alpha})) = 
+\sum_i^n (\log(N p(\vec{x}_i|\vec{\alpha})) + \log(\gamma)) =
+\mathrm{ELL}(\vec{\alpha}) + n \log(\gamma)
+\end{equation}
+Since $\gamma$ is fixed during the maximization process (it is a
+property of the binning, which doesn't change), it has no effect and
+we can neglect it.
+
+
+\section{Implementation}
+To actually run the signal extraction, the abstract method we have
+been describing must be made concrete in the form of a computer
+program.  We wanted this program to be written in C++ using ROOT, the
+current standard in particle physics, as C++ gives reasonably fast,
+portable code and ROOT allows direct interaction with ROOT's powerful
+analysis utilities.  We wanted it to be object oriented to take
+advantage of C++'s object-oriented nature and object-oriented code's
+flexibility and understandability.  We wanted it to be flexible, so
+that it could be used for another experiment with minor or no changes.
+Finally, we wanted as much as possible to be controlled by a
+configuration file that exists outside of the code, so that we could
+run various tests on different configurations of data, systematics and
+MC without having to change the underlying code.
+
+In the following discussion, we will attempt to distinguish between
+the C++ computer code (the code), the compiled executable that runs
+(the program), the configuration file that directs the program as to
+what to do (the config file or the configuration file) and the files
+containing the data events (the data file) and the MC events (the MC
+file).  Often the difference between something in the code and
+something in the program is ambiguous, as the program is generated
+from the code.  In those cases, it is simplest to assume that the
+thing in question is part of both, or rather that it is part of the
+abstract conception underlying both rather than these two concrete
+expressions of this conception.  Additionally, the expression
+``structure'' here does not mean a traditional C/C++ {\tt struct},
+rather it refers to any sort of logical organization within the code.
+Anything appearing in {\tt typewriter} font refers to a component of
+the code or program, for example to distinguish between the {\tt Pdf}
+class and the mathematical Pdf $N\,p(\vec{x}|\vec{\alpha})$.
+
+\subsection{Overview}
+A run of the program consisted of several stages.  First, the config
+file was read and checked for errors (usually typos).  Next, the
+information in the config file was used to set up the necessary
+internal structures, telling the program how many fluxes of what type,
+how many systematics and what their action should be, the initial
+state and step sizes for each parameter, likelihood contributions from
+any constrained parameters, etc.  Then the MCMC chain ran, walking the
+parameters across configuration space and recording the appropriate
+parameter values.  Finally, the results were output to files and the
+program performed clean up actions (closing files, clearing memory,
+etc).
+
+The setup phase is the most complicated.  A hierarchy of structures is
+created.  At the highest level, the MCMC itself runs.  It contains
+$\vec{\alpha}$ as a list of parameters, with an initial starting
+point, step size, current value and possible constraint for each
+extracted from the config file.  It also extracts from the config file
+how many steps the chain should take and how it should record its
+output, i.e. to what file, which parameters to write and how often to
+print status messages to the screen.  To run the MCMC, it varies the
+current values of the parameters, evaluates
+$\mathrm{ELL}(\vec{\alpha})$, decides whether to keep or reject the
+step and records the result.  Computing $\mathrm{ELL}(\vec{\alpha})$
+is not trivial.  There are two contributions: from the data and from
+the constraints.  With a few exceptions noted in the class
+descriptions below, the constraints are dealt with by the MCMC via the
+mechanism of the {\tt LogLikelihoodFormula} or parameter constraints.
+The former is a function defined in the config file that is explicitly
+added to the log likelihood.  The latter adds directly to the log
+likelihood as well, but is a separate, simpler function that only
+deals with Gaussian constraints, which are by far the most common kind.  The
+data portion is handled by the {\tt Pdf}'s, one for each data set.
+For this analysis we have two three dimensional {\tt Pdf}'s, one for
+the day data and one for the night.
+
+Each {\tt Pdf} has a simple task: it takes a the current
+$\vec{\alpha}$ as input and returns the corresponding log likelihood.
+To this end, it contains the data set $\{\vec{x}\}$ and a number of
+{\tt Flux}'s and {\tt Sys}.  Each {\tt Flux} corresponds to a flux as
+we have been referring to it so far: it is a repository of the MC
+events $\{\vec{y}\}$ for a single signal or background.  Each {\tt
+  Sys} takes a single MC event $\vec{y}_i$ as input and returns how
+the vector has changed, the $\Delta \vec{y}_i$ from \mbox{Chapter
+  \ref{SNOAnalysis}}.  The Pdf thus takes one flux at a time, applies
+the relevant systematics (not all systematics are applied to all
+fluxes, see \mbox{Section \ref{SystematicsSection}}) to it one event
+at a time, then fills that event in to a histogram with the
+appropriate weight, all of which are calculated by the {\tt Sys}.
+Once all the fluxes have been processed, the histogram is renormalized
+to create the binned Pdf.  The log likelihood is then computed by
+finding the value of our Pdf corresponding to each data event and
+summing, then adding the extended log likelihood component at the end
+to give the $\mathrm{ELL}(\vec{\alpha})$ described in \mbox{Section
+  \ref{ExtendedLogLikelihood}}.
+
+\subsection{Classes}
+In object-oriented programming, the majority of the code and actual
+computation is handled through classes.  The code has ten classes,
+three of which are ``helper'' classes that aren't directly involved in
+the signal extraction, each of which handles a particular aspect of
+the process.  To explain how the code as a whole works, we must first
+describe how each class works.  Thankfully, the nature of
+object-oriented programming allows us to ignore most of the internal
+details of a class when it interacts with another class, only the
+inputs and outputs matter.  In this explanation, we will strive to
+separate the descriptions in to a short explanation of how the
+``outside world'' sees the class, then a longer explanation of what
+happens inside the class.  We will start from the most basic classes
+and build up to the most complicated, as the topmost class (the {\tt
+  MCMC} class) contains within it instances of almost all the other
+classes.
+
+\subsubsection{ConfigFile} 
+{\tt ConfigFile} is the first helper class, and the only code not
+written expressly for this project.  It is an open-source config file
+reading utility, written by Richard J. Wagner at the University of
+Michigan \cite{ConfigFileSite}.  This is the only code we inherited
+from and have in common with \cite{NCDPRL}; that analysis downloaded
+this class from an online repository.  This rather simple class reads
+in a file that consists of a list of lines of the form \mbox{{\tt key
+= value}} and creates an internal structure allows one to either
+traverse the list of keys or reports the value associated with a
+particular key.  It is very similar to the {\tt map} class in the C++
+standard library.  We will refer to this library by its customary
+acronym STL for brevity.
+
+\subsubsection{Tools} 
+{\tt Tools} is the next helper class.  As the title suggests, it
+contains a set of tools that were useful across most of the other
+classes.  The first of these utilities is {\tt SearchStringVector},
+which looked through an STL vector (effectively a list) of strings for
+a particular string.  This was used a great deal during set up, as the
+various program components were kept track of by a string (their
+``name'').  The next is {\tt ParInfoToString}, which converted
+internal descriptions of components to the external, more
+human-readable ones used in the config files.  The third is\\
+\mbox{{\tt DoublesAreCloseEnough}}, which compares to doubles to see if
+they only differ in the last few bits - this allows checking if two
+doubles are ``equal'' within machine rounding.  The final tool is {\tt
+VectorScramble}, which randomizes the order of entries in an STL
+vector.  This was used mostly for debugging.
+
+\subsubsection{Errors}
+The final helper class is {\tt Errors}.  It is a very simple class
+that contains an STL vector of strings.  This is a global list, so
+that any time any piece of code adds to it, all of the program can see
+it.  This was used for error handling - any time a piece of code
+encountered an error, for example a malformed configuration file entry
+or a non-existant file, it reported this to {\tt Errors}.  This
+allowed the program to process things as best as possible instead of
+immediately exiting, allowing multiple problems to be seen at once.
+At the end of the setup phase or when an error that could not be
+overcome was encountered, the {\tt Errors} class printed all of the
+accumulated error messages to the screen and exited the program
+cleanly, rather than crashing.  This was extremely helpful any time
+the config file was changed, as it often caught all the typos in one
+run.
+
+\subsubsection{RealFunction}
+{\tt RealFunction} is a simple class that takes an arbitrary number of
+double (real number) inputs and returns a single double, i.e. a code
+implementation of a simple multivariable function $f(x,y,z,...)$.
+Another class can set the values of each input with {\tt SetParameter}
+and ask for the computed value by calling {\tt Eval}.  It is actually
+a virtual parent class, with each daughter class being specified to
+perform one computation.  For example, one daughter class takes two
+inputs and returns their product, and another takes four inputs ($a$,
+$b$, $c$ and $x$) and returns $a + b x + c x^2$.  So what function
+{\tt RealFunction} performs is decided at set up time by choosing one
+of the available daughter functions, which have the property that the
+code can't distinguish between them and {\tt RealFunction} in terms of
+use.
+
+Internally, {\tt RealFunction} contains an array of doubles, one
+element for each input.  The {\tt Eval} function is different in each
+daughter class, but it is almost always just the real function being
+performed.  Unfortunately, that means that if a function not already
+available is needed, a new daughter class must be written and the code
+recompiled (these daughter classes are very simple and are all defined
+in {\tt FunctionDefs.h}.  This naturally raises the question of why
+this was done this way, rather than writing a general purpose class
+that can take any arbitrary function without needing to specify
+beforehand.  The answer is simple: speed.  This general purpose
+function exists in ROOT as {\tt TF1}, but is much, much too slow to be
+useful.  This implementation is over ten times faster, and this
+function gets called billions of times during a typical run, meaning
+that speed is critical.  In fact, evaluation of RealFunction is more
+than 30\% of the total running time of the program.
+
+\subsubsection{Flux}
+The {\tt Flux} class keeps track of the MC events for a single flux or
+background.  It is the first ``named'' class - it has a unique string
+value that identifies it, so each instance must have a name that is
+unique in the program (not shared with any other named structure).
+This allows for it to be looked up and called in other classes by name
+rather than some more abstract way, which is necessary as part of the
+setup process.  During setup, it reads the MC events from a config
+file specified file.  It also reads from the config file the {\tt
+  TimesExpected} (described in \mbox{Section \ref{PDFGeneration}}) and
+a quantity called {\tt FluxNumber}; the former is a scaling factor
+that determines the nominal number of data events for this flux, the
+latter is used by {\tt MCMC} to decide whether a given {\tt Sys}
+should act on this flux. During running, this simple class returns an
+individual MC event $\vec{y}_i$ when called.  It can return events in
+any order.
+
+Internally, the MC events are stored in memory as a large array, for
+speed.  They are returned as a vector of doubles of length equal to
+the length of $\vec{y}_i$ plus one, with the extra element being the
+weight $W$, set to $1$ and altered by the {\tt Sys}.  {\tt Flux} has
+member functions to return its name, number of MC events, {\tt
+  TimesExpected} and {\tt FluxType}
+
+\subsubsection{Sys}
+The {\tt Sys} class applies a function to a set of values.  It is
+another named class, again its name must be unique within the program.
+At its heart, an instance of Sys contains either a {\tt RealFunction}
+or a {\tt TF1} that returns a single double given a set of parameters.
+The {\tt Sys} keeps track of which parameters out of $\vec{\alpha}$ it
+needs, as well as any parts of $\vec{y}_i$ it needs, and hands these
+to the underlying function.  It then records the results in a separate
+vector with the same size as $\vec{y}_i$, which it returns.  This
+allows for all {\tt Sys} to have access to $\vec{y}_i$ as it comes
+from the {\tt Flux}.  Each {\tt Sys} also contains a list of {\tt
+  FluxNumber}'s that it affects, and returns either true or false when
+asked if it affects a particular {\tt FluxNumber}.  Most instances are
+within a {\tt Pdf}, but the class also serves double duty in that it
+is used to implement both the {\tt LogLikelihoodFunction}'s and the
+{\tt AsymmFunc}'s, described in the {\tt MCMC} description.
+
+As mentioned, {\tt Sys} contains either a {\tt RealFunction} or a {\tt
+  TF1}.  These are nearly identical in function, save that {\tt
+  RealFunction} has a very short list of functions it can perform but
+is fast, while {\tt TF1} can perform an arbitrary function but is
+slow.  During setup, the {\tt Sys} is given a list of all the
+parameters in $\vec{\alpha}$ (called the mcmcPars) and all of the
+components of the MC events (called the branchPars or branches).  The
+config file tells the {\tt Sys} what function to use and what values
+it needs in what order, out of these two lists.  Since this is a bit
+error prone, many of these are hard-coded into the {\tt Sys} class
+and automatically selected by the {\tt Sys}'s name, though this can be
+overridden.  {\tt Sys} keeps track of which values it needs to pass to
+the underlying function, in the sense that it stores these values as
+class members.  Each {\tt Sys} only alters one component of
+$\vec{y}_i$, called the ``target'', just as each systematic does.
+This is necessary, both to follow the logical structure of the
+analysis and because the underlying function only provides a single
+output.  The config file (or the automatic selection) sets whether the
+computation is done using the $\vec{y}_i$ from {\tt Flux} or
+$\vec{y}_i + \Delta \vec{y}_i$, i.e. the ``new'' value incorporating
+all {\tt Sys} applied thus far.  It also sets whether the output value
+should be added to the target element (most systematics) or multiply
+the target element (the weight altering systematics).  Finally, it
+reads from the config file (or the automatic selection) a list of {\tt
+  FluxNumber}'s, which it stores.  During a run, a {\tt Sys} takes the
+list of parameters $\vec{\alpha}$ and updates its internal values to
+correspond to the new list.  A member function takes a {\tt
+  FluxNumber} as input and returns either true or false, corresponding
+to whether it acts on that {\tt FluxNumber} or not.  This happens once
+per {\tt Flux}.  Finally, the {\tt Sys} is given an event $\vec{y}_i$
+and the changes made thus far to its value $\Delta \vec{y}_i$ and
+updates those changes.
+
+
+\subsubsection{Pdf}
+This actually encompasses three classes: {\tt PdfParent}, {\tt Pdf1D}
+and {\tt Pdf3D}.  {\tt Pdf1D} and {\tt Pdf3D} implement a 1D and a 3D
+histogram/pdf, respectively, while {\tt PdfParent} handles tasks that
+are common to the two.  We will ignore the division of labor and
+dimensionality differences and speak of a {\tt Pdf} class.  From the
+viewpoint of outside entities, it only has two tasks: it reads from
+the config file, data file and MC file the information it needs (and
+sets itself up) and it returns its contribution to
+$\mathrm{ELL}(\vec{\alpha})$ when given $\vec{\alpha}$.
+
+Internally, this class coordinates the activities of the other classes
+(except {\tt MCMC}).  It stores the data events $\{\vec{x}\}$ in the
+same way that {\tt Flux} stores the MC events.  Also, it contains the
+histogram that is to be filled with the MC data to create
+$N\,p(\vec{x}|\vec{\alpha})$, a {\tt TH1D} for {\tt Pdf1D} and a {\tt
+TH3D} for {\tt Pdf3D}.  During setup, it reads from the config file
+which fluxes it should use when building its Pdf and which systematics
+(including things treated as systematics, such as $P_{ee}$), creates
+instances of {\tt Flux} and {\tt Sys} as appropriate, and gives them
+the information they need to construct themselves.  In particular,
+each element in the MC event vector $\vec{y}_i$ has a name, given in
+the config file, which must be consistent across all MC sets.  The
+config file specifies what file the {\tt Pdf}'s data is in, which it
+reads in to an internal array, with the element names also specified
+in the config file as for the MC events.  During a run, the {\tt Pdf}
+is given a new value for $\vec{\alpha}$, which is passes along to the
+{\tt Sys}.  The histogram is then emptied.  Then the first {\tt Flux}
+is asked for its {\tt FluxNumber} and each {\tt Sys} is asked if it
+acts on this flux, creating a list of {\tt Sys} that act on this {\tt
+Flux}.  The {\tt Flux} is then asked for its elements one at a time,
+with each acted upon by the appropriate {\tt Sys} to create $\Delta
+\vec{y}_i$.  The histogram is then filled with $\vec{y}_i + \Delta
+\vec{y}_i$, with weight given by \mbox{equation \ref{FinalWeight}}.
+The Scale term is special, in that it is a parameter with the same
+name as the {\tt Flux} that is automatically created by {\tt MCMC}
+when the {\tt Flux} is created.  This is then repeated for each {\tt
+Flux} and the histogram is rescaled as explained in \mbox{Section
+\ref{PDFGeneration}}.  Then the {\tt Pdf} takes each data event, finds
+the corresponding bin in the histogram, and adds the logarithm of the
+histogram's entry to log likelihood (which is reset to zero when this
+process starts, so only this {\tt Pdf} and this step's values are
+used).  The extended log likelihood is computed by subtracting the
+total number of events.  This value is returned.
+
+\subsubsection{MCMC}
+The {\tt MCMC} is the highest level class.  There is only one instance
+per program.  In fact, other than some input processing and a timer,
+the main program consists of having {\tt MCMC} read the config file
+then calling {\tt MCMC.Run()}.  From the outside point of view, this
+class is a black box that takes a config file as input, then performs
+the analysis (including reading the files and writing the output).
+
+As most of the work is actually done by {\tt Pdf} and the classes
+inside it, the {\tt MCMC} class mostly acts to coordinate.  During
+setup, it reads from the config file those parameters directly
+governing the MCMC chain behavior, such as the number of steps in the
+chain, how often to print to the screen (every $n^{th}$ step it prints
+the current parameter values) and which extra information about the
+parameters to save (such as the proposed values
+$\vec{\alpha}_i^{prop}$ that are rejected).  It reads the name of the
+output file and creates both that file and the {\tt TTree} (a ROOT
+data storage class) that will be written to the file.  It reads the
+number and dimension of the {\tt Pdf}'s and creates the appropriate
+{\tt Pdf}'s, then passes the config file to each to allow it to
+construct itself.  It then reads out of the config file all of the
+parameters that make up $\vec{\alpha}$, most of which are explicitly
+parameters, but one is automatically created and shares a name with
+each {\tt Flux} and {\tt Sys}.  For each of these parameters, it reads
+in the initial value, maximum and minimum value (if defined), step
+size and (if applicable and Gaussian) the mean and width of the
+parameter's constraint.  Finally, it reads from the config file the
+setup information for the {\tt LogLikelihoodFunction}'s and the {\tt
+AsymmFunc}'s.  These are special instances of the {\tt Sys} class that
+do not act on the MC events.  Instead, the {\tt LogLikelihoodFunction}
+uses the {\tt Sys} machinery to create a function that takes some
+number of the parameters as an input and outputs a number that is
+directly added to the log likelihood at each step in the MCMC.  This
+is used to compute values for non-Gaussian constraints, which can be
+arbitrary functions, and for direct contributions to the likelihood
+such as LETA and PSA.  The {\tt AsymmFunc}'s are used to alter the
+values of parameters based on other parameters.  This allows a
+parameter such as the energy scale to be computed - it is actually the
+sum of two other parameters.  It is also used to compute the values
+for the day and night versions of a parameter from $\bar{\alpha}$ and
+$A_{\alpha}$, as the name might suggest.  Once this setup is complete,
+the {\tt MCMC} unsurprisingly run the Metropolis algorithm.  At each
+step, it varies the values of the parameters according to their step
+sizes (which can be zero) and adjusts them according to any {\tt
+AsymmFunc} to create the $\vec{\alpha}_i^{prop}$.  If any parameter is
+above its max or below its min, the step is rejected.  Otherwise, the
+log likelihood is reset to zero and the contribution from each
+constraint, each {\tt LogLikelihoodFunction} and each {\tt Pdf} is
+computed and added.  Then the Metropolis algorithm decides whether to
+keep or reject the step.  If it is kept, the proposed parameters
+replace the old parameters, if not the proposed parameters are
+rejected.  The values of the parameters are then added to the {\tt
+TTree}.  When the whole algorithm has finished (i.e. it has taken the
+prescribed number of steps), the {\tt TTree} is written to the output
+file, stray memory is cleaned up and the program exits.
+
+Details about how to interact with the various aspects of the program,
+in particular how to write a config file to use the program, are given
+in \mbox{Appendix \ref{CodeUsage}}.
+
