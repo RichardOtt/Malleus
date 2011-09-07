@@ -40,7 +40,12 @@ LIBS =  $(shell root-config --libs)
 #	-L/usr/lib -lgsl -lgslcblas
 
 
-all: $(EXE) $(DRAWEXE) $(METAEXE) $(AUTOCORREXE) $(AUTOFITEXE)
+all: subdir $(EXE) $(DRAWEXE) $(METAEXE) $(AUTOCORREXE) $(AUTOFITEXE)
+
+.PHONY : subdir
+subdir: 
+	-mkdir -p bin
+	-mkdir -p obj
 
 main: $(EXE)
 
@@ -95,6 +100,7 @@ $(GENERATEMAPEXE): $(GENERATEMAPOBJ)
 depend : $(SRC)
 	makedepend -- $(INCS) -- $(SRC)
 
+.PHONY : clean
 clean: 
 	rm -f $(OBJ) $(DRAWOBJ) $(METAOBJ) $(GENERATEMAPOBJ) $(EXE) $(DRAWEXE)\
  $(METAEXE) $(GENERATEMAPEXE) $(AUTOFITEXE) $(AUTOCORREXE) src/Decider.cxx\
