@@ -60,23 +60,23 @@ autocorr: $(AUTOCORREXE)
 autofit: $(AUTOFITEXE)
 
 $(AUTOCORREXE): src/getAutoCorr.C
-	$(CPP) $(FLAGS) $(INCS) $(LIBS) src/getAutoCorr.C -o $(AUTOCORREXE)
+	$(CPP) src/getAutoCorr.C -o $(AUTOCORREXE) $(FLAGS) $(INCS) $(LIBS) 
 
 $(AUTOFITEXE): src/autoFit.C
-	$(CPP) $(FLAGS) $(INCS) $(LIBS) src/autoFit.C -o $(AUTOFITEXE)
+	$(CPP)  src/autoFit.C -o $(AUTOFITEXE) $(FLAGS) $(INCS) $(LIBS)
 
 
 $(OBJ):  obj/%.o: src/%.cxx Makefile
 	$(CPP) $(FLAGS) -c $(INCS) -o $@ $<
 
 $(EXE): $(OBJ) $(GENERATEMAPEXE)
-	$(CPP) $(LFLAGS) $(INCS) $(LIBS) -o $@ $(OBJ)
+	$(CPP) $(OBJ) -o $@ $(LFLAGS) $(INCS) $(LIBS)  
 
 obj/drawResults.o:  src/drawResults.cxx Makefile
-	$(CPP) $(FLAGS) -c $(INCS) -o $@ $<
+	$(CPP) $< -o $@ $(FLAGS) -c $(INCS) 
 
 $(DRAWEXE): $(DRAWOBJ)
-	$(CPP) $(LFLAGS) $(INCS) $(LIBS) -o $@ $(DRAWOBJ)
+	$(CPP) $(DRAWOBJ) -o $@ $(LFLAGS) $(INCS) $(LIBS) 
 
 obj/metaConfig.o: src/metaConfig.cxx src/metaReader.cxx src/metaReader.h\
                   Makefile
@@ -92,10 +92,10 @@ src/Decider.cxx: $(GENERATEMAPEXE) src/FunctionDefs.h
 	bin/generateMap.exe src/FunctionDefs.h > src/Decider.cxx
 
 $(METAEXE): $(METAOBJ)
-	$(CPP) $(LFLAGS) $(INCS) $(LIBS) -o $@ $(METAOBJ)
+	$(CPP) $(METAOBJ) -o $@ $(LFLAGS) $(INCS) $(LIBS)
 
 $(GENERATEMAPEXE): $(GENERATEMAPOBJ)
-	$(CPP) $(LFLAGS) $(INCS) $(LIBS) -o $@ $(GENERATEMAPOBJ)
+	$(CPP) $(GENERATEMAPOBJ) -o $@ $(LFLAGS) $(INCS) $(LIBS)
 
 depend : $(SRC)
 	makedepend -- $(INCS) -- $(SRC)
