@@ -1,0 +1,86 @@
+This is a slightly more complicated (than "simplest") use of Malleus.
+Call it "next simplest", or "first Sys"
+
+Here we'll be using the important Sys feature.  This lets you change
+MC events as they are added to your histogram, not just the total
+number of events (though we have that flexibility too).
+
+As before, run makeDist.C to create the files, and
+
+Malleus -m firstSys.meta
+
+to run the corresponding MCMC
+
+The file makeDist.C generates a fake data set and a fake MC set.  This
+time they are
+
+fakeData.root, which has one TTree (fakeData) in it.  It's only
+branch, Energy, is a uniform distribution from 0.5 to 2, broadened by
+a Gaussian of width 0.3 (think of it as a convolution - the idea is
+that we have a "step" source, but it's broadened by our resolution)
+
+fakeMC.root, which has one TTree (fakeMC) in it.  This has two
+branches, Energy and TrueEnergy.  This represents simulating the
+actual event (the step source) as TrueEnergy, then broadening it with our
+resolution to get what we expect in our data (Energy).  However, we've
+used the wrong width - here I've used 0.2, so it's too narrow.
+
+To compensate for this, we'll have to let the resolution float - allow
+it to be altered in our fit.  You could accomplish this in a number of
+ways, but the most straightforward (and probably the fastest) is to
+record both the TrueEnergy and the broadened Energy, then changing the
+difference between them - this is the same as if you had regenerated
+Energy from TrueEnergy, with a different width gaussian.
+Mathematically, you want the following: 
+
+NewEnergy = TrueEnergy + (1 + Res)*(Energy - TrueEnergy) 
+
+where we note that this is set up so that Resolution=0 corresponds to
+the "default" resolution value (in this case 0.2).  Note that
+Res=-1 gives a gaussian width of 0, negative values correspond
+to making the gaussian narrower, and positive to making it broader
+(Res = 1 double the width, etc).  Why choose this admittedly
+slightly weird way of writing it?  Because it simplifies to
+
+NewEnergy = Energy + Resolution*(Energy - TrueEnergy)
+
+Which is really good for us, as it meshes well with how the Sys work.
+At their most basic, the Sys merely compute the value of a Function
+(chosen from the list defined in FunctionDefs.h, which you will
+probably need to add to) and add that value to a particular branch of
+our MC before it is added to the Pdf.  For multiple alterations,
+either use a more complicated function or multiple Sys.  Note each Sys
+can "target" only a single branch.
+
+So here we'll use the function "Resolution" designed for this purpose, which
+returns the value
+
+parameter[0]*(parameter[1] - parameter[2])
+
+Looking above, we see we'll need to set parameter[0] = Res,
+parameter[1] = Energy and parameter[2] = TrueEnergy, and we'll be all set, as
+the Sys is *added* to the already existing value.
+
+So, since we gave it 0.2 for the simulation and it was actually 0.3, we should
+expect a Res parameter value of 0.5
+
+A couple words of caution:
+The Sys has a few options you can toggle, which can change some of
+this behavior (see the manual, and it's talked about a bit in the
+.meta file included here).  
+
+When you do need to add new things to the FunctionDefs.h file, there's
+basically no error checking there, so you can get weird behavior (or
+failure to compile) if you're not careful.  See the notes in that
+file.
+
+It's easy to forget (and I'm guilty of it as well) that your function
+should return the *change* in your branch value, *not* the new branch
+value.  So if you just want to add a constant, you'd want your function
+to be
+
+Const
+
+and not
+
+Branch + Const

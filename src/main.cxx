@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
     string configLine, key, value;
     config = new ConfigFile();
     cout << metaParsed.GetNumLines() << " lines in config\n";
-    metaParsed.PrintConfigToFile("wft.txt");
+    metaParsed.PrintConfigToFile("parsedMetaToConfig.txt");
     for(int i=0; i < metaParsed.GetNumLines(); i++) {
       configLine = metaParsed.GetConfigLine();
       metaParsed.ConvertToKeyPair(configLine, key, value);

@@ -1,0 +1,96 @@
+#Most of this is the same as before, with different names
+#the big change is the last bit, adding in the Sys
+
+MCMC_ChainLength=20000
+MCMC_SkipSteps=100
+MCMC_PrintFrequency=100
+OutputFilename=results_firstSys.root
+
+#Note that there are two "MCBranch"es now - the "Energy" is a step convolved
+#with a gaussian, while the "TrueEnergy" is just the underlying step
+new Pdf
+Name=Data
+Dimension=1
+MCBranch=Energy
+MCBranch=TrueEnergy
+DataFile=fakeData.root
+DataTree=fakeData
+#This was generated with 500 events
+
+new Axis
+Name=Energy
+#20 equal Bins -1 to 3
+nBins=20
+LowerBound=-1
+UpperBound=3
+
+new Flux
+Name=MC
+File=fakeMC.root
+Tree=fakeMC
+TimesExpected=100
+Min=0
+Width=0.05
+Init=1.5
+FluxNumber=0
+#This contains 500000 events, so we actually expect it to return 1
+
+#Now we add in a "Sys" - this lets us change the events as they're added
+#to our histogram.  In this case, we want the ability to vary the "resolution"
+#of our gaussian smearing.  We do this by altering the difference between
+#the TrueEnergy value (before smearing) and the Energy value (after smearing)
+#Since we know we've added a gaussian smearing (we create the MC, so we control
+#it), increasing this difference is equivalent to smearing with a broader
+#gaussian, while decreasing it is equivalent to a narrower gaussian
+
+#The first few lines are the same as before, and control the "automatically
+#generated parameter"
+new Sys
+Name=res
+Init=0
+Width=0.05
+
+#The Function chooses which of the built-in functions to use.  You will
+#probably need to create your own at some point, which involves altering
+#the FunctionDefs.h file and recompiling.  Here, we're using the function
+#defined as parameter[0]*(parameter[1] - parameter[2]).  More on why we
+#chose that at the end
+Function=Resolution
+
+#Choose a branch to alter.  A sys can only alter one branch, so you'll need
+#one for each branch you want to change.  Functions can be reused, of course
+Target=Energy
+
+#This sets the first "parameter", parameter[0], to the Parameter
+#(either automatically created, as this one is, or defined with a "new
+#Parameter" call) called res.  Note that all MCMCParameterValue calls
+#are processed before any MCBranchValue calls, an unfortunately
+#necessary shortfall of the system 
+MCMCParameterValue=res
+
+#This sets the next two parameters to be parameter[1] = Energy and
+#parameter[2] = TrueEnergy.  These are branches in our MC TTree, hence
+#the name MCBranchValue
+MCBranchValue=Energy
+MCBranchValue=TrueEnergy
+
+#This is technically optional, as it defaults to false, but I leave it
+#in to remember what I'm doing.  This sets whether you want to take
+#the value that your Function returns and add it to your Target (for
+#false), or multiply your target by it (for true).  So here, we'll get
+#Energy = Energy + res*(Energy - TrueEnergy), where the left side
+#Energy is after the Sys, and is what goes in our Pdf, while the right
+#side is as it comes from our TTree
+UseMultiply=false
+
+#Also technically optional, as it defaults to True.  This only matters
+#when you have more than one Sys - it tells it whether to act on the
+#value that comes out of our TTree (true), or the value after applying
+#all Sys up to this point (false).  To be clear, if it's set to false, the
+#order in which you call your Sys matter.  Setting both UseMultiply and
+#UseOriginalData to true at the same time is not recommended.  If you want
+#to do that, you're better off using a different Function.
+UseOriginalData=true
+
+
+

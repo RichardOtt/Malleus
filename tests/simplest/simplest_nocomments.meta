@@ -1,0 +1,28 @@
+MCMC_ChainLength=20000
+MCMC_SkipSteps=100
+MCMC_PrintFrequency=100
+OutputFilename=results_Simplest.root
+
+new Pdf
+Name=Flat
+Dimension=1
+MCBranch=X
+DataFile=fakeData.root
+DataTree=fakeData
+
+new Axis
+Name=X
+#20 equal Bins -1 to 3
+nBins=20
+LowerBound=-1
+UpperBound=3
+
+new Flux
+Name=MCFlat
+File=fakeMC.root
+Tree=fakeMC
+TimesExpected=100
+Min=0
+Width=0.05
+Init=1
+

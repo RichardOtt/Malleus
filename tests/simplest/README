@@ -1,0 +1,111 @@
+
+This is the simplest use of Malleus (other than having it do nothing).
+
+makeGauss.C generates two root files:
+
+fakeGaus.root contains a single TTree, called fakeData, that has a
+single branch X, with approximately 800 events drawn from a flat
+distribution between 0 and 2.
+
+fakeMCGaus.root contains a single TTree, called fakeMCGaus, that has a
+single branch X, with approximately 400000 events drawn from flat
+distribution between 0 and 2.
+
+The meta file simplest.meta is set to only vary the total number of
+events.  It is set to think that there is 100x as many events in the
+MC as in the data, which is incorrect, so we expect that it will find
+that there are twice as many events as expected, i.e. we should find
+that the parameter MCGaus (which controls the number of events) will
+fit out to be 2.
+
+To run the fit, run (in this directory)
+
+$PathToMalleus/Malleus -m simplest.meta
+
+That will take a minute or two, and produce the file
+results_Simplest.root.  These are the fitting results, it will contain
+a single TTree name Tmcmc.  This tree will have branches named Step,
+ProLogL, AccLogL, ProMCGaus, AccMCGaus.  These branches are, in order,
+the step number (in the Markov chain, this will increment from entry
+to entry), the value of Log Likelihood that the system "proposed"
+(tried to step to), the value of Log Likelihood at that it kept, the
+proposed value of the parameter MCGaus, and the value of MCGaus at
+that step.  We'll want to look at AccMCGaus, this is the set of random
+samples of the parameter that we want.
+
+So, in ROOT, we open the file and draw our parameter:
+TFile myfile("results_Simplest.root");
+Tmcmc->Draw("AccMCGaus");
+
+This will give a histogram of the parameter.  But we need to get rid of 
+the burn in period, which can distort the results.
+
+Tmcmc->Draw("AccMCGaus:Step");
+
+This shows us what the parameter was as we went along the chain.  In an
+ideal case, we'd just see a fuzzy band around 2.  This is pretty close, but
+if we zoom in to the beginning
+
+Tmcmc->Draw("AccMCGaus:Step","Step<500");
+
+So here we see it initially climb up to 2.  We'll call the burn-in
+period 1000 just to be safe, but that's really overkill.  So, plotting again
+
+Tmcmc->Draw("AccMCGaus","Step>1000");
+
+This is the histogram we'd like to fit.  Thankfully, we have programs to
+do this fit for us.
+
+In the bin directory, along with Malleus we find a number of helper
+programs.  We're going to start with autoFit.exe, which is a fitter.
+It takes a number of options, which you can see if you run it with no
+arguments:
+
+bin/autoFit.exe
+
+We want the simplest behavior, so we'll just run it on our file
+
+autoFit.exe results_Simplest.root
+
+This fits a Gaussian to each parameter (only the one in our case),
+skipping the first 2000 steps as burn in (you can control that number
+with an option).  It generates a bunch of files:
+
+results_Simplest.root.fitResult
+   this contains only the centroid of each parameter's fit, we'll use this 
+   for drawing
+results_Simplest.root.fits.ps
+   this has a graph of each parameter's fit.  Useful for checking to see if
+   something went wrong.  Note that the ps files ROOT creates are pretty bad,
+   you may wish to run ps2pdf or ps2ps on them first to clean them up
+results_Simplest.root.fits.root
+   This contains the centroid and width for each fit (upper and lower width,
+   if you're using two-sided gaussians).  This has the real results.
+
+So, we could stop now.  The .fits.root file is a little unwieldy to look at,
+but great for an automated system to deal with.  Instead, we're going to
+do one more thing: draw a picture of our results.
+
+To do this, we'll need a config file rather than a meta file (long story), 
+to make one run
+
+bin/metaConfig.exe simplest.meta simplest.config
+
+(very simple translator program, you can see its options by running it with
+no arguments)
+
+Now we run the drawing program.  Again, we can see its options and needs by
+running it with no arguments
+
+bin/drawResults.exe
+
+So it needs a config file, a fitResult file, and a place to store the
+pictures.  Usually, the latter is a ps file.  Let's do that
+
+bin/drawResults.exe simplest.config results_Simplest.root.fitResult draw.ps
+
+So that should create a graph comparing our data with our fitted MC.
+
+And that's all that we need to do for this simple case.  Feel free to explore
+the files more and see how they're structured, and tweak the number of
+events in the data or MC to see how things change.

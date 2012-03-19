@@ -1,0 +1,107 @@
+#Things beginning with a hash/pound sign are comments
+#I'll try to be explicit about what each line does.  Future files
+#will only comment on things that are new since the last one
+
+#This tells the Markov Chain how many steps to take - higher
+#gives you more accuracy, but is slower.  This is way more than enough
+#for this simple problem
+MCMC_ChainLength=20000
+
+#This actually doesn't do anything right now, it's an option passed
+#to the drawing program later.  Mainly, it's a legacy and can be omitted
+MCMC_SkipSteps=100
+
+#This tells the system how often to send a status update to the screen
+#So, it will print status every 100 steps
+MCMC_PrintFrequency=100
+
+#This sets where the system stores the MCMC results.  In this
+#file will be a single TTree named "Tmcmc"
+OutputFilename=results_Simplest.root
+
+
+
+#Here we create the most basic object we need - this is a "Pdf",
+#it is a collection of data and MC we are comparing.  Why have the option
+#of making more than one?  In case you have multiple data sets that
+#are correlated, as was the case for my thesis project
+new Pdf
+
+#This gives it a name.  It must be unique (sorry, not easy to avoid)
+Name=Flat
+
+#This is how many dimensions our *data* has.  Currently only 1 and 3 work,
+#but some tinkering would easily make 2 work.  4 or more is possible, but
+#would require a lot more tinkering.  Future upgrade.
+#So, here we only have one data variable.
+Dimension=1
+
+#This sets the variables that our *MC* has.  Can be as many as you
+#like, as long as the MC includes, at minimum, the same branches as
+#the data.  We'll deal with multiple MC branches later.  Here we only
+#have the one from the data, "X"
+MCBranch=X
+
+#These next two set the location of the data events, which must be
+#stored as a TTree in a .root file
+DataFile=fakeData.root
+DataTree=fakeData
+#This was generated with 800 events
+
+
+
+#This creates our single axis (since we only have 1 dimension).  Bins
+#can be set as here, where they're all equal, or as any set of widths
+#desired.  Again, we will deal with unequal bins later.  Note that the
+#names of our axes correspond to the names of our data variables, here "X"
+new Axis
+Name=X
+#20 equal Bins -1 to 3
+nBins=20
+LowerBound=-1
+UpperBound=3
+
+
+
+#Finally, we create a set of MC events.  We can have as many of these
+#we want (say, representing different physical processes).  Here we
+#have just the one.
+new Flux
+
+#We give it a name.  Again, must be unique.  A parameter with this name
+#will be automatically created, and will control how many events
+#are in the generated histogram.  This can be overridden.
+Name=MCFlat
+
+#This tells the system where to look for the MC events.  Again, must be a 
+#TTree in a .root file
+File=fakeMC.root
+Tree=fakeMC
+
+#This one may not be the most clear - this tells the system how many
+#more MC events we have than data events.  So, if we expect 100 data
+#events, and we have 50000 MC events, we'd say we have a TimesExpected
+#of 500, since we have put in to our simulation 500 times as many
+#events as we expect.  That would give an expectation of 1 for our
+#parameter.  What the system actual does is create a histogram out of
+#the MC with a number of events in it equal to 
+#parameter*(MC events)/(TimesExpected)
+#Then it compares this to the data.  So here, with 40000 MC events, it will
+#initially create a histogram with 1*40000/100 = 400 events.  That's not
+#enough, since we have 800 data events, so it will change the parameter (the
+#only thing it can) upwards, until it gets 2*40000/100 = 800 events.
+TimesExpected=100
+
+#Sets a lower limit on the parameter, so we won't get a negative number of
+#events
+Min=0
+
+#This is an absolutely critical control - it controls how large of a step
+#the Markov Chain tries to make in the paramter MCFlat.  Tuning this
+#can be hard, but for a small number of parameters doesn't matter much
+#For a large number, though, tuning this is one of the biggest tasks
+Width=0.05
+
+#This controls the initial value of the parameter MCFlat
+Init=1
+
