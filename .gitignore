@@ -1,0 +1,17 @@
+#general:
+*.swp
+*.o
+*.so
+*.a
+*.dylib
+
+#from Eclipse
+.project
+.cproject
+
+#from cmake
+CMakeCache.txt
+CMakeFiles/
+Makefile
+cbuild/
+cmake_install.cmake
