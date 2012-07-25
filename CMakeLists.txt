@@ -61,7 +61,7 @@ set (LIBS ${LIBS} ${ROOT_LIBRARIES})
 
 # configuration header file
 #configure_file (
-#    "${PROJECT_SOURCE_DIR}/MalleusConfig.hh.in"
+#    "${CMAKE_CURRENT_SOURCE_DIR}/MalleusConfig.hh.in"
 #    "${PROJECT_BINARY_DIR}/MalleusConfig.hh"
 #)
 
@@ -73,53 +73,75 @@ set (LIBS ${LIBS} ${ROOT_LIBRARIES})
 
 
 ####################################################
+# Header files
+####################################################
+
+set (MALLEUS_HEADERS
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Bkgd.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ConfigFile.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Decider.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Errors.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Flux.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/FunctionDefs.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/MCMC.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/metaReader.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Pdf1D.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Pdf3D.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/PdfParent.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/RealFunction.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Sys.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Tools.h
+)
+
+install (FILES ${MALLEUS_HEADERS}  DESTINATION ${INCLUDE_INSTALL_DIR})
+
+
+####################################################
 # Source files for different executables
 ####################################################
 
 set (MALLEUS_SRC
-    ${PROJECT_SOURCE_DIR}/src/main.cxx
-    ${PROJECT_SOURCE_DIR}/src/MCMC.cxx
-    ${PROJECT_SOURCE_DIR}/src/PdfParent.cxx
-    ${PROJECT_SOURCE_DIR}/src/Pdf1D.cxx
-    ${PROJECT_SOURCE_DIR}/src/Pdf3D.cxx
-    ${PROJECT_SOURCE_DIR}/src/Sys.cxx
-    ${PROJECT_SOURCE_DIR}/src/Flux.cxx
-    ${PROJECT_SOURCE_DIR}/src/Bkgd.cxx
-    ${PROJECT_SOURCE_DIR}/src/ConfigFile.cxx
-    ${PROJECT_SOURCE_DIR}/src/Errors.cxx
-    ${PROJECT_SOURCE_DIR}/src/Tools.cxx
-    ${PROJECT_SOURCE_DIR}/src/RealFunction.cxx
-    ${PROJECT_SOURCE_DIR}/src/Decider.cxx
-    ${PROJECT_SOURCE_DIR}/src/metaReader.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/MCMC.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/PdfParent.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Pdf1D.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Pdf3D.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Sys.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Flux.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Bkgd.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ConfigFile.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Errors.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Tools.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/RealFunction.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/metaReader.cxx
 )
 
 set (MALLEUS_DRAW_SRC
-    ${PROJECT_SOURCE_DIR}/src/drawResults.cxx
-    ${PROJECT_SOURCE_DIR}/src/MCMC.cxx
-    ${PROJECT_SOURCE_DIR}/src/PdfParent.cxx
-    ${PROJECT_SOURCE_DIR}/src/Pdf1D.cxx
-    ${PROJECT_SOURCE_DIR}/src/Pdf3D.cxx
-    ${PROJECT_SOURCE_DIR}/src/Sys.cxx
-    ${PROJECT_SOURCE_DIR}/src/Flux.cxx
-    ${PROJECT_SOURCE_DIR}/src/Bkgd.cxx
-    ${PROJECT_SOURCE_DIR}/src/ConfigFile.cxx
-    ${PROJECT_SOURCE_DIR}/src/Errors.cxx
-    ${PROJECT_SOURCE_DIR}/src/Tools.cxx
-    ${PROJECT_SOURCE_DIR}/src/RealFunction.cxx
-    ${PROJECT_SOURCE_DIR}/src/Decider.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/drawResults.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/MCMC.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/PdfParent.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Pdf1D.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Pdf3D.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Sys.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Flux.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Bkgd.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ConfigFile.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Errors.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Tools.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/RealFunction.cxx
 )
 
 set (MALLEUS_META_SRC
-    ${PROJECT_SOURCE_DIR}/src/metaConfig.cxx
-    ${PROJECT_SOURCE_DIR}/src/metaReader.cxx
-    ${PROJECT_SOURCE_DIR}/src/Errors.cxx
-    ${PROJECT_SOURCE_DIR}/src/Tools.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/metaConfig.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/metaReader.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Errors.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Tools.cxx
 )
 
 set (MALLEUS_GENERATE_MAP_SRC
-    ${PROJECT_SOURCE_DIR}/src/generateMap.cxx
-    ${PROJECT_SOURCE_DIR}/src/Errors.cxx
-    ${PROJECT_SOURCE_DIR}/src/Tools.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/generateMap.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Errors.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Tools.cxx
 )
 
 
@@ -145,10 +167,10 @@ target_link_libraries (drawResults.exe ${LIBS})
 add_executable (metaConfig.exe ${MALLEUS_META_SRC})
 target_link_libraries (metaConfig.exe ${LIBS})
 
-add_executable (getAutoCorr.exe ${PROJECT_SOURCE_DIR}/src/getAutoCorr.C)
+add_executable (getAutoCorr.exe ${CMAKE_CURRENT_SOURCE_DIR}/src/getAutoCorr.C)
 target_link_libraries (getAutoCorr.exe ${LIBS})
 
-add_executable (autoFit.exe ${PROJECT_SOURCE_DIR}/src/autoFit.C)
+add_executable (autoFit.exe ${CMAKE_CURRENT_SOURCE_DIR}/src/autoFit.C)
 target_link_libraries (autoFit.exe ${LIBS})
 
 install (TARGETS generateMap.exe
@@ -167,6 +189,6 @@ install (TARGETS generateMap.exe
 
 
 # this is apparently not the right way to run the link_dylibs script
-#execute_process (COMMAND ${PROJECT_SOURCE_DIR}/Scripts/link_dylibs.sh ${PROJECT_BINARY_DIR}/lib)
+#execute_process (COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/Scripts/link_dylibs.sh ${PROJECT_BINARY_DIR}/lib)
 
-#install (CODE "execute_process (COMMAND ${PROJECT_SOURCE_DIR}/Scripts/link_dylibs.sh ${PROJECT_BINARY_DIR}/lib)")
+#install (CODE "execute_process (COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/Scripts/link_dylibs.sh ${PROJECT_BINARY_DIR}/lib)")
