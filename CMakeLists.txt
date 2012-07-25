@@ -113,6 +113,7 @@ set (MALLEUS_SRC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Errors.cxx
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Tools.cxx
     ${CMAKE_CURRENT_SOURCE_DIR}/src/RealFunction.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Decider.cxx
     ${CMAKE_CURRENT_SOURCE_DIR}/src/metaReader.cxx
 )
 
@@ -129,6 +130,7 @@ set (MALLEUS_DRAW_SRC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Errors.cxx
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Tools.cxx
     ${CMAKE_CURRENT_SOURCE_DIR}/src/RealFunction.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Decider.cxx
 )
 
 set (MALLEUS_META_SRC
